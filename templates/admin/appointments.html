@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Appointments{% endblock %}
+{% block page_title %}Appointments{% endblock %}
+{% block breadcrumb %}Admin / Appointments{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link active"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">All Appointments ({{ appointments|length }})</h3>
+        <a href="/admin/appointments/add" class="btn btn-primary">+ Schedule Appointment</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Reason</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for a in appointments %}
+            <tr>
+                <td><strong>{{ a.patient_name }}</strong></td>
+                <td>{{ a.doctor_name }}</td>
+                <td><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> {{ a.appointment_date }}</td>
+                <td>🕐 {{ a.appointment_time }}</td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.reason }}</td>
+                <td>
+                    {% if a.status == 'Scheduled' %}
+                    <span class="badge badge-green">{{ a.status }}</span>
+                    {% elif a.status == 'Completed' %}
+                    <span class="badge badge-blue">{{ a.status }}</span>
+                    {% else %}
+                    <span class="badge badge-red">{{ a.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;padding:48px;color:#7A6558">No appointments yet. <a href="/admin/appointments/add" style="color:#E8611A">Schedule one →</a></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,624 @@
+{% extends 'base.html' %}
+{% block title %}Patient — {{ patient.name }}{% endblock %}
+{% block page_title %}{{ patient.name }}{% endblock %}
+{% block breadcrumb %}Doctor / Patients / {{ patient.name }}{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Clinical</span>
+<a href="/doctor/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<span class="nav-section-label">Account</span>
+<a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.symptom-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+}
+.symptom-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border: 1.5px solid #F0E8D8;
+    border-radius: 8px; cursor: pointer; transition: all 0.18s;
+    background: #FBF7F0; font-size: 13px; user-select: none;
+}
+.symptom-chip input { display: none; }
+.symptom-chip .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid #D0C8C0; flex-shrink: 0; transition: all 0.18s;
+}
+.symptom-chip:hover { border-color: #E8611A; background: #FFF3E0; }
+.symptom-chip.selected { border-color: #E8611A; background: #FFF3E0; }
+.symptom-chip.selected .dot { background: #E8611A; border-color: #E8611A; }
+.symptom-label { text-transform: capitalize; }
+
+.ml-result {
+    border: 2px solid #4A7C22; border-radius: 14px; padding: 24px;
+    background: linear-gradient(135deg, #F1F8E9, #DCEDC8);
+    display: none;
+}
+.confidence-bar {
+    height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-top: 6px;
+}
+.confidence-fill { height: 100%; background: linear-gradient(90deg, #4A7C22, #7AB648); border-radius: 4px; transition: width 0.6s ease; }
+.top3-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.top3-item:last-child { border: none; }
+
+.rx-section { background: #fff; border: 1px solid #F0E8D8; border-radius: 12px; padding: 20px; margin-top: 16px; }
+.tab-btn {
+    padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans'; font-size: 14px; font-weight: 500; transition: all 0.2s;
+    background: #F0E8D8; color: #4A3728;
+}
+.tab-btn.active { background: #2D5016; color: #fff; }
+
+/* Safety Warning Styles */
+.safety-card {
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+    border-left: 4px solid; animation: fadeSlideIn 0.4s ease;
+}
+.safety-card.high {
+    background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+    border-left-color: #E65100;
+}
+.safety-card.critical {
+    background: linear-gradient(135deg, #FFEBEE, #FFCDD2);
+    border-left-color: #C62828;
+}
+.safety-card h5 {
+    font-size: 14px; font-weight: 600; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+}
+.safety-card .flagged { font-size: 12px; color: #7A6558; margin: 4px 0; }
+.safety-card .alt {
+    font-size: 12px; color: #2D5016; background: #E8F5E9;
+    border-radius: 6px; padding: 8px 10px; margin-top: 8px;
+}
+.health-profile-card {
+    background: linear-gradient(135deg, #FFF8E1, #FFECB3);
+    border: 1.5px solid #FFD54F; border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 20px;
+    display: flex; align-items: flex-start; gap: 14px;
+}
+.health-profile-card .hp-icon {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: #FFD54F; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+}
+.ack-box {
+    background: #FFF3E0; border: 1.5px solid #FFB74D;
+    border-radius: 10px; padding: 12px 16px; margin-top: 12px;
+    display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.ack-box input[type=checkbox] { width: 18px; height: 18px; accent-color: #E65100; }
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Patient Header -->
+<div class="card" style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+        <div style="display:flex;align-items:center;gap:20px">
+            <div style="width:68px;height:68px;background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#E8611A">
+                {{ patient.name[0].upper() }}
+            </div>
+            <div>
+                <h2 style="font-size:24px">{{ patient.name }}</h2>
+                <p style="color:#7A6558;font-size:13px">{{ patient.email }} · {{ patient.phone or 'No phone' }}</p>
+                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                    <span class="badge badge-blue">{{ patient.age or 'N/A' }} yrs</span>
+                    <span class="badge badge-orange">{{ patient.gender or 'N/A' }}</span>
+                    <span class="badge badge-red">{{ patient.blood_group or 'N/A' }}</span>
+                    {% if patient.preexisting_conditions %}
+                    <span class="badge badge-orange" style="background:#FFE0B2;color:#E65100">⚠ Pre-existing Conditions: {{ patient.preexisting_conditions }}</span>
+                    {% endif %}
+                    {% if patient.allergies %}
+                    <span class="badge badge-red" style="background:#FFCDD2;color:#C62828">⚠ Allergies: {{ patient.allergies }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="/doctor/patients" class="btn btn-outline">← Back to Patients</a>
+    </div>
+</div>
+
+<!-- Patient Health Profile Reminder -->
+{% if patient.preexisting_conditions or patient.allergies %}
+<div class="health-profile-card">
+    <div class="hp-icon">🛡️</div>
+    <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:#E65100;margin-bottom:4px">Patient Health Profile — Safety Check Active</div>
+        <div style="font-size:12px;color:#4A3728;line-height:1.6">
+            {% if patient.preexisting_conditions %}
+            <span style="background:#FFE0B2;padding:2px 8px;border-radius:4px;margin-right:6px">⚠ {{ patient.preexisting_conditions }}</span>
+            {% endif %}
+            {% if patient.allergies %}
+            <span style="background:#FFCDD2;padding:2px 8px;border-radius:4px">🚫 Allergies: {{ patient.allergies }}</span>
+            {% endif %}
+        </div>
+        <div style="font-size:11px;color:#7A6558;margin-top:6px">Predictions will be automatically screened for unsafe interactions with these conditions.</div>
+    </div>
+</div>
+{% else %}
+<div class="health-profile-card" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-color:#81C784">
+    <div class="hp-icon" style="background:#81C784">✅</div>
+    <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;color:#2D5016;margin-bottom:4px">No Pre-existing Conditions Recorded</div>
+        <div style="font-size:12px;color:#4A3728">If the patient has conditions or allergies, update their profile for automatic safety screening.</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div style="display:flex;gap:10px;margin-bottom:24px">
+    <button class="tab-btn active" onclick="showTab('predict',this)">🤖 ML Disease Prediction</button>
+    <button class="tab-btn" onclick="showTab('history',this)"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Treatment History ({{ prescriptions|length }})</button>
+</div>
+
+<!-- ML PREDICTION TAB -->
+<div id="tab_predict">
+    {% if patient.triage_symptoms %}
+    <div style="background:#FFF3E0;border:2px solid #E8611A;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+                <h4 style="margin:0;color:#E8611A;font-size:16px;display:flex;align-items:center;gap:6px">🤖 AI Triage Report Available!</h4>
+                <p style="margin:8px 0;font-size:14px;color:#4A3728;font-style:italic;">"{{ patient.triage_raw_text }}"</p>
+                <div style="font-size:12px;color:#7A6558">
+                    <strong>AI Extracted Symptoms:</strong>
+                    <span id="triage_extracted_symptoms" style="display:none">{{ patient.triage_symptoms }}</span>
+                    <span style="font-family:monospace;color:#2D5016">{{ patient.triage_symptoms }}</span>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="loadTriageData()" style="background:#E8611A;border-color:#E8611A;box-shadow:none">Load Triage Data</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Select Patient Symptoms</h3>
+                <p style="font-size:13px;color:#7A6558;margin-top:4px">Type patient symptoms for AI auto-check or manually choose below</p>
+            </div>
+            <div style="display:flex;gap:10px">
+                <button onclick="clearSymptoms()" class="btn btn-outline btn-sm">Clear All</button>
+                <button onclick="predictDisease()" class="btn btn-primary" id="predict_btn">🤖 Predict Disease</button>
+            </div>
+        </div>
+        <div style="margin-bottom:20px;display:flex;gap:10px;padding:0 24px;">
+            <button type="button" onclick="startDictation()" class="btn btn-outline" id="voice_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0;font-size:18px;padding:0 14px;" title="Dictate Symptoms">🎙️</button>
+            <input type="text" id="ai_symptom_input" placeholder="✨ Type or speak symptoms here..." style="flex:1;padding:12px;border:1px solid #D0C8C0;border-radius:8px;font-family:'DM Sans';font-size:14px">
+            <button type="button" onclick="extractSymptoms()" class="btn btn-outline" id="ai_extract_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0">🤖 AI Auto</button>
+        </div>
+        <div class="symptom-grid" style="padding:0 24px;">
+            {% for symptom in symptoms_list %}
+            <div class="symptom-chip" onclick="toggleSymptom(this)" data-symptom="{{ symptom }}">
+                <input type="checkbox" value="{{ symptom }}">
+                <div class="dot"></div>
+                <span class="symptom-label">{{ symptom.replace('_', ' ') }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top:16px;font-size:13px;color:#7A6558">
+            Selected: <strong id="selected_count">0</strong> symptoms
+        </div>
+    </div>
+
+    <!-- ML Result -->
+    <div class="ml-result" id="ml_result" style="margin-bottom:20px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px">
+            <div>
+                <div style="font-size:13px;color:#4A7C22;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
+                    🤖 ML Prediction Result
+                </div>
+                <div id="predicted_disease" style="font-family:'Cormorant Garamond',serif;font-size:36px;color:#1A1208;font-weight:600"></div>
+                <div style="margin-top:8px">
+                    <span style="font-size:13px;color:#4A3728">Confidence: </span>
+                    <strong id="confidence_pct" style="color:#2D5016"></strong>
+                </div>
+                <div class="confidence-bar" style="width:300px;margin-top:8px">
+                    <div class="confidence-fill" id="conf_bar" style="width:0%"></div>
+                </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:16px;min-width:220px">
+                <div style="font-size:12px;font-weight:600;color:#4A3728;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Top 3 Predictions</div>
+                <div id="top3_list"></div>
+            </div>
+        </div>
+
+        <!-- Rule-Based Safety Warnings -->
+        <div id="safety_warnings_section" style="display:none;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <span style="font-size:18px">🛡️</span>
+                <h4 style="font-size:16px;color:#C62828;font-weight:700;margin:0">Medical Safety Warnings</h4>
+                <span id="warning_count" style="background:#C62828;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600"></span>
+            </div>
+            <div id="safety_warnings_list"></div>
+            <div class="ack-box" id="ack_box">
+                <input type="checkbox" id="ack_check" onchange="toggleAck()">
+                <label for="ack_check" style="cursor:pointer">I have reviewed all safety warnings and will discuss them with the patient before prescribing.</label>
+            </div>
+        </div>
+
+        <!-- AI-Enhanced Safety Warning -->
+        <div id="ai_safety_banner" style="display:none;background:#E3F2FD;border:1px solid #42A5F5;border-radius:12px;padding:16px;margin-bottom:16px;color:#1565C0">
+            <h4 style="font-size:15px;margin-bottom:6px;display:flex;align-items:center;gap:6px"><span>🤖</span> AI-Enhanced Safety Analysis</h4>
+            <div id="ai_safety_text" style="font-size:13px;line-height:1.5"></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px" id="med_toggles">
+            <button class="btn btn-primary" id="btn_ayurvedic" onclick="switchMedicine('ayurvedic')" type="button"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Ayurvedic Treatment</button>
+            <button class="btn btn-outline" id="btn_allopathic" onclick="switchMedicine('allopathic')" type="button">🏥 Modern Medicine</button>
+        </div>
+        
+        <!-- Doctor Authentication Box before Medicines -->
+        <div style="background:#FFF9F0; border:1px solid #D0C8C0; border-radius:12px; padding:16px; margin-bottom:16px;">
+            <h4 style="margin-top:0; margin-bottom:12px; font-size:15px; color:#4A3728; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">👨‍⚕️</span> Prescribing Doctor Details
+            </h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:13px; color:#4A3728">
+                <div><span style="color:#7A6558">Name:</span> <strong>{{ doctor.name }}</strong></div>
+                <div><span style="color:#7A6558">Specialization:</span> <strong>{{ doctor.specialization }}</strong></div>
+                <div><span style="color:#7A6558">Qualification:</span> <strong>{{ doctor.qualification }}</strong></div>
+                <div><span style="color:#7A6558">Experience:</span> <strong>{{ doctor.experience }} Years</strong></div>
+            </div>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid #E0D8D0; font-size:12px; color:#7A6558; font-style:italic;">
+                <p style="margin: 0 0 8px 0;">By proceeding below, you assume full clinical responsibility for ensuring the predicted Ayurvedic treatments (e.g., sweet medicines) are safe for this patient's medical history (e.g., Diabetes).</p>
+                <p style="margin: 0 0 4px 0; font-weight: 600;">Online Consultation Guidelines:</p>
+                <ul style="margin: 0; padding-left: 16px; line-height: 1.5;">
+                    <li>As this is an online digital platform, ensure that your prescription acts as a viable alternative for patients who cannot immediately attend an in-person physical consultation.</li>
+                    <li>If the patient's conditions require direct physical examination, please advise them to visit a nearby clinic or hospital before proceeding with complex treatments.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="rx-section" style="margin-top:0">
+            <h4 style="font-size:16px;margin-bottom:14px;color:#2D5016" id="rx_title"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Suggested Treatment</h4>
+            <form action="/doctor/prescribe/{{ patient.id }}" method="POST">
+                <input type="hidden" name="symptoms" id="f_symptoms">
+                <input type="hidden" name="predicted_disease" id="f_disease">
+                <div class="form-grid">
+                    <div class="form-group form-full">
+                        <label>Medicines</label>
+                        <textarea name="medicines" id="f_medicines" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group form-full">
+                        <label>Dosage Instructions</label>
+                        <textarea name="dosage" id="f_dosage" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Duration</label>
+                        <input type="text" name="duration" id="f_duration" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Diet Advice</label>
+                        <input type="text" name="diet_advice" id="f_diet">
+                    </div>
+                    <div class="form-group form-full">
+                        <label>Doctor's Notes / Lifestyle Suggestions</label>
+                        <textarea name="suggestions" id="f_suggestions" rows="3" placeholder="Additional lifestyle advice, yoga, Panchakarma therapy, etc..."></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-green">💊 Save Prescription</button>
+                    <button type="button" onclick="clearResult()" class="btn btn-outline">← Predict Again</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- HISTORY TAB -->
+<div id="tab_history" style="display:none">
+    {% if prescriptions %}
+    {% for pr in prescriptions %}
+    <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+            <div>
+                <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#1A1208">{{ pr.predicted_disease }}</h3>
+                <p style="color:#7A6558;font-size:13px">Prescribed by Dr. {{ pr.doctor_name }} · {{ pr.created_at[:10] }}</p>
+            </div>
+            <span class="badge badge-green">Completed</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px">
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:6px">Symptoms Reported</div>
+                <div>{{ pr.symptoms }}</div>
+            </div>
+            <div style="background:#F1F8E9;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:6px">Medicines Prescribed</div>
+                <div>{{ pr.medicines }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:6px">Dosage</div>
+                <div>{{ pr.dosage }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:6px">Duration</div>
+                <div>{{ pr.duration }}</div>
+            </div>
+            {% if pr.diet_advice %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:6px">Diet Advice</div>
+                <div>{{ pr.diet_advice }}</div>
+            </div>
+            {% endif %}
+            {% if pr.suggestions %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:6px">Doctor's Notes</div>
+                <div>{{ pr.suggestions }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:64px">
+        <div style="font-size:64px;margin-bottom:16px"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <h3 style="font-size:22px;margin-bottom:8px">No treatment history</h3>
+        <p style="color:#7A6558">Use the ML Prediction tab to create the first prescription.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedSymptoms = new Set();
+
+function toggleSymptom(el) {
+    const s = el.dataset.symptom;
+    if (selectedSymptoms.has(s)) {
+        selectedSymptoms.delete(s);
+        el.classList.remove('selected');
+    } else {
+        selectedSymptoms.add(s);
+        el.classList.add('selected');
+    }
+    document.getElementById('selected_count').textContent = selectedSymptoms.size;
+}
+
+function clearSymptoms() {
+    selectedSymptoms.clear();
+    document.querySelectorAll('.symptom-chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById('selected_count').textContent = 0;
+    clearResult();
+}
+
+function clearResult() {
+    document.getElementById('ml_result').style.display = 'none';
+    document.getElementById('safety_warnings_section').style.display = 'none';
+}
+
+function renderSafetyWarnings(warnings) {
+    const section = document.getElementById('safety_warnings_section');
+    const list = document.getElementById('safety_warnings_list');
+    const countBadge = document.getElementById('warning_count');
+    const ackBox = document.getElementById('ack_box');
+    const ackCheck = document.getElementById('ack_check');
+    
+    if (!warnings || warnings.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    countBadge.textContent = warnings.length + ' Warning' + (warnings.length > 1 ? 's' : '');
+    
+    list.innerHTML = warnings.map(w => `
+        <div class="safety-card ${w.severity}">
+            <h5>
+                <span>${w.severity === 'critical' ? '🚨' : '⚠️'}</span>
+                <span style="color:${w.severity === 'critical' ? '#C62828' : '#E65100'}">${w.condition}</span>
+            </h5>
+            <div style="font-size:13px;color:#4A3728;margin-bottom:4px">${w.message}</div>
+            <div class="flagged">🔍 Flagged ingredients: <strong>${w.flagged_items}</strong></div>
+            <div class="alt">✅ <strong>Safe Alternative:</strong> ${w.alternatives}</div>
+        </div>
+    `).join('');
+    
+    ackCheck.checked = false;
+    section.style.display = 'block';
+}
+
+function toggleAck() {
+    // Non-blocking: acknowledgment is optional but visible
+    const ackCheck = document.getElementById('ack_check');
+    const ackBox = document.getElementById('ack_box');
+    if (ackCheck.checked) {
+        ackBox.style.borderColor = '#81C784';
+        ackBox.style.background = '#E8F5E9';
+    } else {
+        ackBox.style.borderColor = '#FFB74D';
+        ackBox.style.background = '#FFF3E0';
+    }
+}
+
+async function predictDisease() {
+    if (selectedSymptoms.size === 0) {
+        alert('Please select at least one symptom.');
+        return;
+    }
+    const btn = document.getElementById('predict_btn');
+    btn.textContent = '⏳ Predicting...';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/doctor/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                symptoms: Array.from(selectedSymptoms),
+                patient_id: "{{ patient.id }}"
+            })
+        });
+        const data = await resp.json();
+
+        // Show result
+        document.getElementById('predicted_disease').textContent = data.disease;
+        document.getElementById('confidence_pct').textContent = data.confidence + '%';
+        document.getElementById('conf_bar').style.width = data.confidence + '%';
+
+        // Top 3
+        const top3El = document.getElementById('top3_list');
+        top3El.innerHTML = data.top3.map((item, i) => `
+            <div class="top3-item">
+                <span style="font-size:13px;${i===0?'font-weight:600;color:#2D5016':''}">${i+1}. ${item.disease}</span>
+                <span style="font-size:12px;color:#7A6558">${item.confidence}%</span>
+            </div>
+        `).join('');
+
+        // Store prediction globally to allow switching
+        window.currentPrediction = data;
+        
+        document.getElementById('f_symptoms').value = Array.from(selectedSymptoms).join(', ');
+        document.getElementById('f_disease').value = data.disease;
+        
+        // Show Rule-Based Safety Warnings
+        renderSafetyWarnings(data.safety_warnings || []);
+        
+        // Show AI Safety Warning
+        if (data.ai_safety_warning) {
+            document.getElementById('ai_safety_banner').style.display = 'block';
+            document.getElementById('ai_safety_text').innerHTML = data.ai_safety_warning.replace(/\n/g, '<br>');
+        } else {
+            document.getElementById('ai_safety_banner').style.display = 'none';
+        }
+        
+        switchMedicine('ayurvedic');
+
+        document.getElementById('ml_result').style.display = 'block';
+        document.getElementById('ml_result').scrollIntoView({behavior:'smooth', block:'start'});
+    } catch(e) {
+        alert('Prediction failed. Please try again.');
+    } finally {
+        btn.textContent = '🤖 Predict Disease';
+        btn.disabled = false;
+    }
+}
+
+async function extractSymptoms() {
+    const input = document.getElementById('ai_symptom_input').value;
+    if (!input) return;
+    const btn = document.getElementById('ai_extract_btn');
+    btn.textContent = '⏳ ...';
+    btn.disabled = true;
+    try {
+        const r = await fetch('/api/extract_symptoms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: input})
+        });
+        const d = await r.json();
+        // clear existing
+        clearSymptoms();
+        d.symptoms.forEach(s => {
+            const el = document.querySelector(`.symptom-chip[data-symptom="${s}"]`);
+            if(el) toggleSymptom(el);
+        });
+    } catch(e) {
+        alert("Failed to extract symptoms");
+    } finally {
+        btn.textContent = '🤖 AI Auto';
+        btn.disabled = false;
+    }
+}
+
+function startDictation() {
+    if (window.hasOwnProperty('webkitSpeechRecognition') || window.hasOwnProperty('SpeechRecognition')) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US'; // Or you can set this to auto, hi-IN, etc.
+
+        const voiceBtn = document.getElementById('voice_btn');
+        let originalText = voiceBtn.textContent;
+        voiceBtn.textContent = '🔴';
+        
+        recognition.start();
+
+        recognition.onresult = function(e) {
+            document.getElementById('ai_symptom_input').value = e.results[0][0].transcript;
+            recognition.stop();
+            voiceBtn.textContent = originalText;
+            extractSymptoms(); // Automatically trigger extraction
+        };
+
+        recognition.onerror = function(e) {
+            console.error(e);
+            recognition.stop();
+            voiceBtn.textContent = originalText;
+            alert("Voice recognition failed: " + e.error);
+        };
+    } else {
+        alert("Your browser does not support Voice Recognition. Please use Google Chrome.");
+    }
+}
+
+function loadTriageData() {
+    const rawData = document.getElementById('triage_extracted_symptoms').innerText;
+    try {
+        const symptomsExtracted = JSON.parse(rawData);
+        if(!symptomsExtracted || symptomsExtracted.length === 0) {
+            alert("No symptoms extracted in triage.");
+            return;
+        }
+        
+        clearSymptoms();
+        symptomsExtracted.forEach(s => {
+            const el = document.querySelector(`.symptom-chip[data-symptom="${s}"]`);
+            if(el) {
+                selectedSymptoms.add(s);
+                el.classList.add('selected');
+            }
+        });
+        document.getElementById('selected_count').textContent = selectedSymptoms.size;
+        
+        // Auto predict to save even more clicks
+        predictDisease();
+        
+    } catch(e) {
+        console.error("Failed to parse triage symptoms", e);
+        alert("Could not load triage data.");
+    }
+}
+
+function switchMedicine(type) {
+    if (!window.currentPrediction) return;
+    const data = window.currentPrediction;
+    const info = type === 'ayurvedic' ? data.medicine_info : data.allopathic_info;
+    
+    document.getElementById('btn_ayurvedic').className = type === 'ayurvedic' ? 'btn btn-primary' : 'btn btn-outline';
+    document.getElementById('btn_allopathic').className = type === 'allopathic' ? 'btn btn-primary' : 'btn btn-outline';
+    
+    document.getElementById('rx_title').innerHTML = type === 'ayurvedic' ? '<img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Suggested Ayurvedic Treatment' : '🏥 Suggested Modern Treatment';
+    
+    if (info) {
+        document.getElementById('f_medicines').value = info.medicine || '';
+        document.getElementById('f_dosage').value = info.dosage || '';
+        document.getElementById('f_duration').value = info.duration || '';
+        document.getElementById('f_diet').value = info.diet_advice || '';
+        document.getElementById('f_suggestions').value = info.lifestyle || '';
+    } else {
+        document.getElementById('f_medicines').value = '';
+        document.getElementById('f_dosage').value = '';
+        document.getElementById('f_duration').value = '';
+        document.getElementById('f_diet').value = '';
+        document.getElementById('f_suggestions').value = '';
+    }
+}
+
+function showTab(tab, btn) {
+    document.getElementById('tab_predict').style.display = tab === 'predict' ? 'block' : 'none';
+    document.getElementById('tab_history').style.display = tab === 'history' ? 'block' : 'none';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}

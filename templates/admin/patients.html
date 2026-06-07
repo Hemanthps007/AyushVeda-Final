@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Patients{% endblock %}
+{% block page_title %}Patient Management{% endblock %}
+{% block breadcrumb %}Admin / Patients{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">All Patients ({{ patients|length }})</h3>
+        <a href="/admin/patients/add" class="btn btn-primary">+ Add Patient</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Patient</th><th>Age/Gender</th><th>Blood Group</th><th>Diseases</th><th>Assigned Doctor</th><th>Phone</th><th>Actions</th></tr></thead>
+            <tbody>
+            {% for p in patients %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:36px;height:36px;background:#FFF3E0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;color:#E8611A;font-size:14px">{{ p.name[0] }}</div>
+                        <div><strong>{{ p.name }}</strong><br><small style="color:#7A6558">{{ p.email }}</small></div>
+                    </div>
+                </td>
+                <td>{{ p.age or '—' }} / {{ p.gender or '—' }}</td>
+                <td><span class="badge badge-orange">{{ p.blood_group or 'N/A' }}</span></td>
+                <td>
+                    {% if patient_diseases[p.id] %}
+                        {% for disease in patient_diseases[p.id][:2] %}
+                            <span class="badge badge-blue" style="display:inline-block;margin-bottom:4px;">{{ disease }}</span><br>
+                        {% endfor %}
+                        {% if patient_diseases[p.id]|length > 2 %}
+                            <span class="badge" style="background:#E8E8E8;color:#666;display:inline-block;">+{{ patient_diseases[p.id]|length - 2 }} more</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color:#999;font-size:13px">No diseases</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.doctor_name or '<span class="badge badge-red">Unassigned</span>'|safe }}</td>
+                <td>{{ p.phone or '—' }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="/admin/patients/view/{{ p.id }}" class="btn btn-outline btn-sm">👁️ View</a>
+                        <a href="/admin/patients/edit/{{ p.id }}" class="btn btn-outline btn-sm"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Edit</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:48px;color:#7A6558">No patients yet. <a href="/admin/patients/add" style="color:#E8611A">Add one →</a></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

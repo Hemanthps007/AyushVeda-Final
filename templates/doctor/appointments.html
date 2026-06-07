@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Appointments{% endblock %}
+{% block page_title %}My Appointments{% endblock %}
+{% block breadcrumb %}Doctor / Appointments{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Clinical</span>
+<a href="/doctor/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/appointments" class="nav-link active"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<span class="nav-section-label">Account</span>
+<a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">My Appointments ({{ appointments|length }})</h3>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Patient</th><th>Contact</th><th>Date</th><th>Time</th><th>Reason</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for a in appointments %}
+            <tr>
+                <td><strong>{{ a.patient_name }}</strong></td>
+                <td>{{ a.patient_phone or '—' }}</td>
+                <td><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> {{ a.appointment_date }}</td>
+                <td>🕐 {{ a.appointment_time }}</td>
+                <td>{{ a.reason }}</td>
+                <td>
+                    {% if a.status == 'Scheduled' %}
+                    <span class="badge badge-green">{{ a.status }}</span>
+                    {% elif a.status == 'Completed' %}
+                    <span class="badge badge-blue">{{ a.status }}</span>
+                    {% else %}
+                    <span class="badge badge-red">{{ a.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;padding:48px;color:#7A6558">No appointments scheduled.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

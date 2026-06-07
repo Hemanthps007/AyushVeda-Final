@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Schedule Appointment{% endblock %}
+{% block page_title %}Schedule Appointment{% endblock %}
+{% block breadcrumb %}Admin / Appointments / Add{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link active"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:700px">
+    <div class="card-header">
+        <h3 class="card-title">New Appointment</h3>
+        <a href="/admin/appointments" class="btn btn-outline">← Back</a>
+    </div>
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Select Patient *</label>
+                <select name="patient_id" required>
+                    <option value="">— Select Patient —</option>
+                    {% for p in patients %}
+                    <option value="{{ p.id }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Select Doctor *</label>
+                <select name="doctor_id" required>
+                    <option value="">— Select Doctor —</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}">{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Appointment Date *</label>
+                <input type="date" name="appointment_date" required>
+            </div>
+            <div class="form-group">
+                <label>Appointment Time *</label>
+                <input type="time" name="appointment_time" required>
+            </div>
+            <div class="form-group form-full">
+                <label>Reason / Chief Complaint</label>
+                <textarea name="reason" placeholder="Describe the reason for the appointment..."></textarea>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Schedule Appointment</button>
+            <a href="/admin/appointments" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

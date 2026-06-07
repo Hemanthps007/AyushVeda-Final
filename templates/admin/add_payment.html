@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Record Payment{% endblock %}
+{% block page_title %}Record Payment{% endblock %}
+{% block breadcrumb %}Admin / Payments / Add{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link active"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block extra_css %}
+<style>
+.payment-methods { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+.method-option { display:none; }
+.method-label {
+    display: block;
+    border:2px solid #F0E8D8; border-radius:12px; padding:20px; text-align:center;
+    cursor:pointer; transition:all 0.2s; background:#fff;
+}
+.method-label .method-icon { font-size:36px; display:block; margin-bottom:8px; }
+.method-label .method-icon img { height: 48px; object-fit: contain; }
+.method-label .method-name { font-size:14px; font-weight:600; color:#4A3728; }
+.method-option:checked + .method-label {
+    border-color:#E8611A; background:#FFF3E0; box-shadow:0 0 0 3px rgba(232,97,26,0.1);
+}
+.card-fields, .upi-fields { display:none; }
+.dummy-tag {
+    background:#FFF3E0; border:1px dashed #E8611A; border-radius:8px;
+    padding:10px 16px; font-size:13px; color:#E8611A; margin-bottom:20px;
+    display:flex; align-items:center; gap:8px;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px">
+    <div class="card-header">
+        <h3 class="card-title" style="display: flex; align-items: center; gap: 8px;"><img src="/static/images/card_icon.png" alt="Card" style="height: 24px;"> Payment Interface</h3>
+        <a href="/admin/payments" class="btn btn-outline">← Back</a>
+    </div>
+    <div class="dummy-tag"><img src="/static/images/warning_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Simulation Mode — No real transaction will occur</div>
+    <form method="POST">
+        <div class="form-group" style="margin-bottom:24px">
+            <label>Select Patient *</label>
+            <select name="patient_id" required>
+                <option value="">— Select Patient —</option>
+                {% for p in patients %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:24px">
+            <label>Amount (₹) *</label>
+            <input type="number" name="amount" placeholder="0.00" step="0.01" min="1" required style="font-size:24px;font-weight:700;color:#2D5016">
+        </div>
+        <label style="font-size:13px;font-weight:500;color:#4A3728;display:block;margin-bottom:12px">Payment Method *</label>
+        <div class="payment-methods">
+            <div>
+                <input type="radio" name="payment_method" id="m_cash" value="Cash" class="method-option" checked>
+                <label for="m_cash" class="method-label">
+                    <span class="method-icon"><img src="/static/images/cash_icon.png" alt="Cash"></span>
+                    <span class="method-name">Cash</span>
+                </label>
+            </div>
+            <div>
+                <input type="radio" name="payment_method" id="m_card" value="Card" class="method-option">
+                <label for="m_card" class="method-label" onclick="toggleFields('card')">
+                    <span class="method-icon"><img src="/static/images/card_icon.png" alt="Card"></span>
+                    <span class="method-name">Card</span>
+                </label>
+            </div>
+            <div>
+                <input type="radio" name="payment_method" id="m_upi" value="UPI" class="method-option">
+                <label for="m_upi" class="method-label" onclick="toggleFields('upi')">
+                    <span class="method-icon"><img src="/static/images/upi_icon.png" alt="UPI"></span>
+                    <span class="method-name">UPI</span>
+                </label>
+            </div>
+        </div>
+        <!-- Card Fields (Dummy) -->
+        <div class="card-fields" id="card_fields">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Card Number (dummy)</label>
+                    <input type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19">
+                </div>
+                <div class="form-group">
+                    <label>Expiry</label>
+                    <input type="text" placeholder="MM/YY" maxlength="5">
+                </div>
+                <div class="form-group">
+                    <label>CVV</label>
+                    <input type="text" placeholder="XXX" maxlength="3">
+                </div>
+                <div class="form-group">
+                    <label>Card Holder Name</label>
+                    <input type="text" placeholder="Name on card">
+                </div>
+            </div>
+        </div>
+        <!-- UPI Fields (Dummy) -->
+        <div class="upi-fields" id="upi_fields">
+            <div class="form-group">
+                <label>UPI ID (dummy)</label>
+                <input type="text" placeholder="yourname@upi">
+            </div>
+        </div>
+        <div class="form-actions" style="margin-top:28px">
+            <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:14px">
+                Process Payment
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function toggleFields(method) {
+    document.getElementById('card_fields').style.display = method === 'card' ? 'block' : 'none';
+    document.getElementById('upi_fields').style.display = method === 'upi' ? 'block' : 'none';
+}
+document.querySelectorAll('.method-label').forEach(lbl => {
+    lbl.addEventListener('click', function() {
+        const id = this.getAttribute('for');
+        if(id === 'm_card') toggleFields('card');
+        else if(id === 'm_upi') toggleFields('upi');
+        else toggleFields('cash');
+    });
+});
+</script>
+{% endblock %}

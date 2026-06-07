@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+{% block title %}Edit Patient{% endblock %}
+{% block page_title %}Edit Patient{% endblock %}
+{% block breadcrumb %}Admin / Patients / Edit{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:800px">
+    <div class="card-header">
+        <h3 class="card-title">Edit: {{ patient.name }}</h3>
+        <a href="/admin/patients" class="btn btn-outline">← Back</a>
+    </div>
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" name="name" value="{{ patient.name }}" required>
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" name="email" value="{{ patient.email }}" required>
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="text" name="phone" value="{{ patient.phone or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Age</label>
+                <input type="number" name="age" value="{{ patient.age or '' }}">
+            </div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select name="gender">
+                    <option value="">Select Gender</option>
+                    <option {% if patient.gender == 'Male' %}selected{% endif %}>Male</option>
+                    <option {% if patient.gender == 'Female' %}selected{% endif %}>Female</option>
+                    <option {% if patient.gender == 'Other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Blood Group</label>
+                <select name="blood_group">
+                    <option value="">Select</option>
+                    {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+                    <option {% if patient.blood_group == bg %}selected{% endif %}>{{ bg }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Assign Doctor <small style="color:#E8611A">(Email alert sent on reassignment)</small></label>
+                <select name="doctor_id">
+                    <option value="">— No Doctor —</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.id }}" {% if patient.doctor_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group form-full">
+                <label>Address</label>
+                <textarea name="address">{{ patient.address or '' }}</textarea>
+            </div>
+            <div class="form-group form-full">
+                <label>Pre-existing Conditions</label>
+                <textarea name="preexisting_conditions">{{ patient.preexisting_conditions or '' }}</textarea>
+            </div>
+            <div class="form-group form-full">
+                <label>Allergies</label>
+                <textarea name="allergies">{{ patient.allergies or '' }}</textarea>
+            </div>
+            
+            <!-- Disease Management Section -->
+            <div class="form-group form-full">
+                <label style="display:block; margin-bottom:12px; font-weight:600; color:#1a1a1a">
+                    💊 Diagnosed Diseases
+                </label>
+                
+                <!-- Current Diseases Display -->
+                <div id="currentDiseases" style="margin-bottom:15px; display:flex; flex-wrap:wrap; gap:8px; min-height:35px; padding:10px; background-color:#f9f9f9; border-radius:6px; border:1px solid #e0e0e0;">
+                    {% if diseases %}
+                        {% for disease in diseases %}
+                        <span class="disease-badge" data-disease="{{ disease }}" style="
+                            display:inline-flex;
+                            align-items:center;
+                            gap:6px;
+                            background-color:#E3F2FD;
+                            color:#1976D2;
+                            padding:6px 12px;
+                            border-radius:20px;
+                            border-left:3px solid #1976D2;
+                            font-size:14px;
+                            font-weight:500;
+                        ">
+                            {{ disease }}
+                            <button type="button" class="remove-disease-btn" onclick="removeDisease('{{ disease }}', event)" style="
+                                background:none;
+                                border:none;
+                                color:#1976D2;
+                                cursor:pointer;
+                                font-size:16px;
+                                padding:0;
+                                margin:0;
+                                line-height:1;
+                            ">×</button>
+                        </span>
+                        {% endfor %}
+                    {% else %}
+                    <span style="color:#999; font-style:italic;">No diagnosed diseases yet</span>
+                    {% endif %}
+                </div>
+                
+                <!-- Add Disease Section -->
+                <div style="display:flex; gap:8px; align-items:flex-start;">
+                    <select id="diseaseSelect" style="
+                        flex:1;
+                        padding:10px;
+                        border:1px solid #ccc;
+                        border-radius:6px;
+                        font-size:14px;
+                        font-family:inherit;
+                        background-color:white;
+                    ">
+                        <option value="">+ Add Disease</option>
+                        <option value="Diabetes">Diabetes</option>
+                        <option value="Hypertension">Hypertension</option>
+                        <option value="Asthma">Asthma</option>
+                        <option value="Heart Disease">Heart Disease</option>
+                        <option value="Thyroid Disorder">Thyroid Disorder</option>
+                        <option value="Arthritis">Arthritis</option>
+                        <option value="Migraine">Migraine</option>
+                        <option value="Insomnia">Insomnia</option>
+                        <option value="Obesity">Obesity</option>
+                        <option value="Anemia">Anemia</option>
+                        <option value="PCOS">PCOS</option>
+                        <option value="Acid Reflux">Acid Reflux</option>
+                        <option value="IBS">IBS</option>
+                        <option value="Sinusitis">Sinusitis</option>
+                        <option value="Eczema">Eczema</option>
+                        <option value="Depression">Depression</option>
+                        <option value="Anxiety">Anxiety</option>
+                        <option value="Kidney Disease">Kidney Disease</option>
+                        <option value="Liver Disease">Liver Disease</option>
+                    </select>
+                    <button type="button" id="addDiseaseBtn" class="btn btn-primary" onclick="addDisease(event)" style="padding:10px 20px; white-space:nowrap;">
+                        Add
+                    </button>
+                </div>
+                <div id="diseaseMessage" style="margin-top:8px; padding:8px 12px; border-radius:4px; display:none; font-size:13px;"></div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+            <a href="/admin/patients" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Get patient ID from URL
+const patientId = window.location.pathname.split('/').pop();
+
+function showMessage(message, isSuccess = true) {
+    const msgDiv = document.getElementById('diseaseMessage');
+    msgDiv.textContent = message;
+    msgDiv.style.backgroundColor = isSuccess ? '#C8E6C9' : '#FFCDD2';
+    msgDiv.style.color = isSuccess ? '#1B5E20' : '#B71C1C';
+    msgDiv.style.display = 'block';
+    setTimeout(() => {
+        msgDiv.style.display = 'none';
+    }, 3000);
+}
+
+function addDisease(event) {
+    event.preventDefault();
+    const select = document.getElementById('diseaseSelect');
+    const disease = select.value.trim();
+    
+    if (!disease) {
+        showMessage('Please select a disease', false);
+        return;
+    }
+    
+    // Check if disease already exists
+    const existing = document.querySelector(`span[data-disease="${disease}"]`);
+    if (existing) {
+        showMessage(`Disease "${disease}" already added`, false);
+        return;
+    }
+    
+    // Show loading state
+    const btn = document.getElementById('addDiseaseBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+    
+    // Call API
+    fetch(`/api/patient/${patientId}/add-disease`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ disease: disease })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Add disease badge to UI
+            const container = document.getElementById('currentDiseases');
+            
+            // Remove "No diseases" message if present
+            const noMsg = container.querySelector('span[style*="font-style"]');
+            if (noMsg) noMsg.remove();
+            
+            const badge = document.createElement('span');
+            badge.className = 'disease-badge';
+            badge.setAttribute('data-disease', disease);
+            badge.style.cssText = `
+                display:inline-flex;
+                align-items:center;
+                gap:6px;
+                background-color:#E3F2FD;
+                color:#1976D2;
+                padding:6px 12px;
+                border-radius:20px;
+                border-left:3px solid #1976D2;
+                font-size:14px;
+                font-weight:500;
+            `;
+            badge.innerHTML = `
+                ${disease}
+                <button type="button" class="remove-disease-btn" onclick="removeDisease('${disease}', event)" style="
+                    background:none;
+                    border:none;
+                    color:#1976D2;
+                    cursor:pointer;
+                    font-size:16px;
+                    padding:0;
+                    margin:0;
+                    line-height:1;
+                ">×</button>
+            `;
+            container.appendChild(badge);
+            
+            select.value = '';
+            showMessage(`Disease "${disease}" added successfully`);
+        } else {
+            showMessage(data.error || 'Failed to add disease', false);
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        showMessage('Error adding disease', false);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    });
+}
+
+function removeDisease(disease, event) {
+    event.preventDefault();
+    
+    if (!confirm(`Remove disease "${disease}"?`)) return;
+    
+    // Show loading state
+    const badge = event.target.closest('.disease-badge');
+    const originalHTML = badge.innerHTML;
+    badge.style.opacity = '0.5';
+    
+    // Call API
+    fetch(`/api/patient/${patientId}/remove-disease/${encodeURIComponent(disease)}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Remove badge from UI
+            const container = document.getElementById('currentDiseases');
+            badge.remove();
+            
+            // Add "No diseases" message if container is now empty
+            if (container.querySelector('.disease-badge') === null) {
+                container.innerHTML = '<span style="color:#999; font-style:italic;">No diagnosed diseases yet</span>';
+            }
+            
+            showMessage(`Disease "${disease}" removed successfully`);
+        } else {
+            badge.style.opacity = '1';
+            showMessage(data.error || 'Failed to remove disease', false);
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        badge.style.opacity = '1';
+        showMessage('Error removing disease', false);
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}Healthcare Map{% endblock %}
+{% block page_title %}Healthcare Resources Map{% endblock %}
+{% block breadcrumb %}Patient / Healthcare Map{% endblock %}
+{% block nav %}
+<span class="nav-section-label">My Health</span>
+<a href="/patient/dashboard" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
+<a href="/patient/history" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Treatment History</a>
+<a href="/patient/map" class="nav-link active"><span class="icon">📍</span> Map</a>
+<span class="nav-section-label">Account</span>
+<a href="/patient/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+
+{% block content %}
+<!-- UNIFIED MAP DASHBOARD -->
+<div class="card" style="margin-bottom:24px; background:#FBF7F0; border:1px solid #D0C8C0;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:22px;color:#2D5016;display:flex;align-items:center;gap:8px; margin:0;">
+            📍 Explore Nearby Healthcare Resources
+        </h3>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="mapSearchInput" placeholder="Enter location (e.g. Mumbai)" style="padding:10px 14px; border:1px solid #D0C8C0; border-radius:8px; font-size:14px; width:220px; outline:none;" onkeypress="if(event.key === 'Enter') executeMapSearch();">
+            <button class="btn btn-primary" onclick="executeMapSearch()" style="padding:10px 16px;">🔍 Search</button>
+            <button class="btn btn-outline" onclick="useCurrentLocation()" style="padding:10px 16px; background:#fff; font-weight:600; color:#2D5016; border-color:#2D5016;">🎯 Current Location</button>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <button id="btn_hospitals" class="btn map-type-btn active" onclick="setMapType('hospitals')" style="background:#E8F5E9;color:#2D5016;border:1px solid #A5D6A7;font-size:13px;padding:8px 16px;">🏥 Nearby Specialized Hospitals</button>
+        <button id="btn_clinics" class="btn map-type-btn" onclick="setMapType('clinics')" style="background:#FFF;color:#7A6558;border:1px solid #D0C8C0;font-size:13px;padding:8px 16px;">👨‍⚕️ Doctor's Clinic & Info</button>
+        <button id="btn_pharmacies" class="btn map-type-btn" onclick="setMapType('pharmacies')" style="background:#FFF;color:#7A6558;border:1px solid #D0C8C0;font-size:13px;padding:8px 16px;">💊 Low-Cost Pharmacies</button>
+    </div>
+
+    <div style="position:relative; width:100%; height:400px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.06); border:1px solid #E0D8D0;">
+        <div id="mapLoader" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(251,247,240,0.8);display:flex;align-items:center;justify-content:center;z-index:10;display:none;">
+            <p style="font-family:'Cormorant Garamond',serif;font-size:18px;color:#2D5016;font-weight:600;">Updating Map...</p>
+        </div>
+        <iframe id="mainMap" width="100%" height="100%" style="border:0;" loading="lazy" allowfullscreen src="https://maps.google.com/maps?width=100%&amp;height=400&amp;hl=en&amp;q=Ayurvedic+Hospitals+near+me&amp;ie=UTF8&amp;t=&amp;z=13&amp;iwloc=B&amp;output=embed"></iframe>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentMapType = 'hospitals'; // 'hospitals', 'clinics', 'pharmacies'
+let currentLocation = 'near me';  // Can be 'near me', explicit query text, or 'lat,lng'
+
+function executeMapSearch() {
+    const searchVal = document.getElementById('mapSearchInput').value.trim();
+    if (searchVal && searchVal !== "My Current Location") {
+        currentLocation = searchVal;
+        updateMainMap();
+    } else if (searchVal === "My Current Location") {
+        updateMainMap();
+    } else {
+        alert("Please enter a location to search.");
+    }
+}
+
+function useCurrentLocation() {
+    if (navigator.geolocation) {
+        document.getElementById('mapLoader').style.display = 'flex';
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            currentLocation = lat + ',' + lng;
+            document.getElementById('mapSearchInput').value = "My Current Location";
+            
+            // The user clicked Current Location to verify their position. Show the pin.
+            currentMapType = 'none';
+            document.querySelectorAll('.map-type-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#FFF';
+                b.style.color = '#7A6558';
+                b.style.borderColor = '#D0C8C0';
+            });
+            
+            const iframe = document.getElementById('mainMap');
+            iframe.onload = function() {
+                document.getElementById('mapLoader').style.display = 'none';
+            };
+            iframe.src = "https://maps.google.com/maps?width=100%&height=400&hl=en&q=" + lat + "," + lng + "+(Your+Location)&ie=UTF8&t=&z=14&iwloc=B&output=embed";
+        }, function(error) {
+            document.getElementById('mapLoader').style.display = 'none';
+            alert("Error getting location: " + error.message + " Please ensure location permissions are granted.");
+        }, { timeout: 10000 });
+    } else {
+        alert("Geolocation is not supported by your browser.");
+    }
+}
+
+function setMapType(type) {
+    currentMapType = type;
+    
+    // Update button styles to reflect active state
+    const buttons = document.querySelectorAll('.map-type-btn');
+    buttons.forEach(b => {
+        b.classList.remove('active');
+        b.style.background = '#FFF';
+        b.style.color = '#7A6558';
+        b.style.borderColor = '#D0C8C0';
+    });
+    
+    const activeBtn = document.getElementById('btn_' + type);
+    activeBtn.classList.add('active');
+    activeBtn.style.background = '#E8F5E9';
+    activeBtn.style.color = '#2D5016';
+    activeBtn.style.borderColor = '#A5D6A7';
+    
+    updateMainMap();
+}
+
+function updateMainMap() {
+    // Sync the search input box text so that clicking category buttons works without clicking search
+    const searchVal = document.getElementById('mapSearchInput').value.trim();
+    if (searchVal && searchVal !== "My Current Location") {
+        currentLocation = searchVal;
+    } else if (!searchVal) {
+        currentLocation = 'near me';
+    }
+
+    let queryBase = "";
+    if (currentMapType === 'hospitals') {
+        queryBase = "Hospitals"; // Simplified for better POI pin matching across all regions
+    } else if (currentMapType === 'clinics') {
+        queryBase = "Clinics";
+    } else if (currentMapType === 'pharmacies') {
+        queryBase = "Pharmacies";
+    } else {
+        // If clicking search while 'none' is active, default to hospitals
+        queryBase = "Hospitals";
+        currentMapType = "hospitals";
+        document.getElementById('btn_hospitals').classList.add('active');
+        document.getElementById('btn_hospitals').style.background = '#E8F5E9';
+    }
+    
+    let url = "https://maps.google.com/maps?width=100%&height=400&hl=en";
+    
+    if (currentLocation === 'near me') {
+        url += "&q=" + encodeURIComponent(queryBase + " near me") + "&z=13";
+    } else if (currentLocation.includes(',')) {
+        // Highly accurate way to search NEAR a coordinate in Google Maps Embed
+        url += "&q=" + encodeURIComponent(queryBase) + "&sll=" + currentLocation + "&ll=" + currentLocation + "&z=13";
+    } else {
+        // Using "near" text works better than "in" for hospital searches
+        url += "&q=" + encodeURIComponent(queryBase + " near " + currentLocation) + "&z=13";
+    }
+    
+    // Show loading overlay
+    document.getElementById('mapLoader').style.display = 'flex';
+    
+    const iframe = document.getElementById('mainMap');
+    iframe.onload = function() {
+        document.getElementById('mapLoader').style.display = 'none';
+    };
+    
+    iframe.src = url + "&ie=UTF8&iwloc=B&output=embed";
+}
+</script>
+{% endblock %}

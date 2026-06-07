@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up — AyushVeda</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --saffron: #E8611A;
+            --forest: #2D5016;
+            --cream: #FBF7F0;
+            --text-dark: #1A1208;
+            --error: #D32F2F;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .signup-container {
+            width: 100%;
+            max-width: 450px;
+            background: #fff;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+            text-decoration: none;
+        }
+        .logo img { width: 36px; height: 36px; }
+        .logo h2 { font-family: 'Cormorant Garamond', serif; color: var(--forest); font-size: 28px; }
+        
+        .header { text-align: center; margin-bottom: 32px; }
+        .header h1 { font-family: 'Cormorant Garamond', serif; font-size: 32px; margin-bottom: 8px; font-weight: 600; }
+        .header p { font-size: 14px; color: #666; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; color: var(--text-dark); }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #E0E0E0;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--forest);
+            box-shadow: 0 0 0 4px rgba(45,80,22,0.1);
+        }
+        
+        .btn-signup {
+            width: 100%;
+            padding: 14px;
+            background: var(--forest);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+        .btn-signup:hover { background: #3A6B1A; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,80,22,0.2); }
+        
+        .footer-links { text-align: center; margin-top: 24px; font-size: 14px; color: #666; }
+        .footer-links a { color: var(--saffron); text-decoration: none; font-weight: 500; }
+        .footer-links a:hover { text-decoration: underline; }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .alert-error { background: #FFEBEE; color: var(--error); border: 1px solid #FFCDD2; }
+        .alert-success { background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9; }
+
+        @media (max-width: 480px) {
+            .signup-container { padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <a href="/" class="logo">
+            <img src="/static/images/logo_icon.png" alt="Logo">
+            <h2>AyushVeda</h2>
+        </a>
+        
+        <div class="header">
+            <h1>Create Account</h1>
+            <p>Join the future of healthcare</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/patient/signup">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" placeholder="name@example.com" required>
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" placeholder="Your phone number">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" class="btn-signup">Sign Up</button>
+        </form>
+        
+        <div class="footer-links">
+            Already have an account? <a href="/patient/login">Login here</a>
+        </div>
+    </div>
+</body>
+</html>

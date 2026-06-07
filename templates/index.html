@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AyushVeda — Healthcare Beyond Boundaries</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --saffron: #E8611A; --saffron-light: #F4874B;
+            --turmeric: #D4A017; --forest: #2D5016;
+            --forest-mid: #4A7C22; --forest-light: #7AB648;
+            --cream: #FBF7F0; --cream-dark: #F0E8D8;
+            --earth: #6B4226; --text-dark: #1A1208;
+            --text-mid: #4A3728; --text-light: #7A6558;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text-dark); overflow-x: hidden; }
+        h1,h2,h3 { font-family: 'Cormorant Garamond', serif; }
+
+        /* NAV */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 20px 60px; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(251,247,240,0.92); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(212,160,23,0.15);
+        }
+        .nav-brand { display: flex; align-items: center; gap: 12px; }
+        .nav-logo {
+            width: 42px; height: 42px; background: var(--forest);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        .nav-brand h2 { font-size: 22px; color: var(--forest); font-weight: 600; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-btn {
+            padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 500;
+            text-decoration: none; transition: all 0.2s; cursor: pointer; font-family: 'DM Sans';
+        }
+        .nav-btn-outline { border: 1.5px solid var(--forest); color: var(--forest); }
+        .nav-btn-outline:hover { background: var(--forest); color: #fff; }
+        .nav-btn-fill { background: var(--saffron); color: #fff; border: 1.5px solid var(--saffron); }
+        .nav-btn-fill:hover { background: var(--saffron-light); }
+
+        /* HERO */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; position: relative;
+            padding: 120px 60px 80px; overflow: hidden;
+        }
+        .hero-bg {
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, var(--cream) 0%, #F5EDD8 40%, #EBE0C4 100%);
+        }
+        .hero-decoration {
+            display: none;
+        }
+        .hero-circle {
+            position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+            width: 520px; height: 520px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .hero-image { width: 380px; height: 380px; position: relative; mix-blend-mode: multiply; z-index: 10; animation: float 6s ease-in-out infinite; }
+        .hero-image img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 20px 30px rgba(0,0,0,0.1)); }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+        .hero-content { position: relative; z-index: 2; max-width: 600px; }
+        .hero-tag {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(45,80,22,0.08); border: 1px solid rgba(45,80,22,0.15);
+            padding: 6px 16px; border-radius: 20px; font-size: 12px;
+            color: var(--forest-mid); text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: 68px; line-height: 1.05; color: var(--text-dark); margin-bottom: 20px;
+            font-weight: 300;
+        }
+        .hero h1 em { font-style: italic; color: var(--saffron); }
+        .hero h1 strong { font-weight: 600; color: var(--forest); }
+        .hero p { font-size: 17px; color: var(--text-light); line-height: 1.7; margin-bottom: 36px; max-width: 500px; }
+        .hero-btns { display: flex; gap: 16px; flex-wrap: wrap; }
+        .hero-btn {
+            padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 500;
+            text-decoration: none; transition: all 0.25s; font-family: 'DM Sans';
+            display: inline-flex; align-items: center; gap: 10px;
+        }
+        .hero-btn-primary { background: var(--forest); color: #fff; }
+        .hero-btn-primary:hover { background: var(--forest-mid); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(45,80,22,0.25); }
+        .hero-btn-secondary { background: transparent; color: var(--text-mid); border: 1.5px solid var(--cream-dark); }
+        .hero-btn-secondary:hover { border-color: var(--saffron); color: var(--saffron); }
+
+        /* STATS */
+        .stats-bar {
+            background: var(--forest); padding: 28px 60px;
+            display: flex; justify-content: center; gap: 80px; flex-wrap: wrap;
+        }
+        .stat-item { text-align: center; }
+        .stat-item .val { font-family: 'Cormorant Garamond'; font-size: 40px; color: var(--turmeric); font-weight: 600; }
+        .stat-item .lbl { font-size: 13px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        /* PORTALS */
+        .portals { padding: 100px 60px; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-tag {
+            display: inline-block; background: var(--cream-dark); padding: 5px 16px;
+            border-radius: 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+            color: var(--earth); margin-bottom: 16px;
+        }
+        .section-header h2 { font-size: 48px; color: var(--text-dark); font-weight: 400; }
+        .section-header p { font-size: 16px; color: var(--text-light); margin-top: 12px; }
+        .portals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; max-width: 1100px; margin: 0 auto; }
+        .portal-card {
+            border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s; cursor: pointer;
+        }
+        .portal-card:hover { transform: translateY(-8px); box-shadow: 0 16px 48px rgba(0,0,0,0.14); }
+        .portal-header { padding: 40px 32px 28px; position: relative; overflow: hidden; }
+        .portal-header::after {
+            content: attr(data-emoji); position: absolute; right: -10px; top: -10px;
+            font-size: 120px; opacity: 0.08; line-height: 1;
+        }
+        .portal-icon { font-size: 42px; margin-bottom: 16px; }
+        .portal-header h3 { font-size: 26px; margin-bottom: 6px; }
+        .portal-header p { font-size: 14px; opacity: 0.75; }
+        .portal-card.admin .portal-header { background: linear-gradient(135deg, var(--forest), #3A6B1A); color: #fff; }
+        .portal-card.doctor .portal-header { background: linear-gradient(135deg, var(--saffron), #C04A0A); color: #fff; }
+        .portal-card.patient .portal-header { background: linear-gradient(135deg, var(--earth), #4A2010); color: #fff; }
+        .portal-body { padding: 28px 32px; background: #fff; }
+        .portal-features { list-style: none; margin-bottom: 24px; }
+        .portal-features li { padding: 7px 0; font-size: 13px; color: var(--text-mid); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--cream-dark); }
+        .portal-features li:last-child { border: none; }
+        .portal-features li::before { content: '✓'; color: var(--forest-light); font-weight: 700; }
+        .portal-login-btn {
+            display: block; text-align: center; padding: 13px; border-radius: 10px;
+            text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s;
+            font-family: 'DM Sans';
+        }
+        .admin .portal-login-btn { background: var(--forest); color: #fff; }
+        .admin .portal-login-btn:hover { background: var(--forest-mid); }
+        .doctor .portal-login-btn { background: var(--saffron); color: #fff; }
+        .doctor .portal-login-btn:hover { background: var(--saffron-light); }
+        .patient .portal-login-btn { background: var(--earth); color: #fff; }
+        .patient .portal-login-btn:hover { background: var(--earth-light); }
+
+        /* FEATURES */
+        .features { padding: 80px 60px; background: var(--forest); }
+        .features .section-header h2, .features .section-header p { color: #fff; }
+        .features .section-tag { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; max-width: 1100px; margin: 0 auto; }
+        .feature-card {
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 28px; transition: background 0.2s;
+        }
+        .feature-card:hover { background: rgba(255,255,255,0.12); }
+        .feature-icon { font-size: 32px; margin-bottom: 14px; }
+        .feature-card h3 { font-size: 18px; color: #fff; margin-bottom: 8px; }
+        .feature-card p { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.6; }
+
+        /* DEMO CREDS */
+        .creds { padding: 60px; background: var(--cream-dark); }
+        .creds-inner { max-width: 900px; margin: 0 auto; text-align: center; }
+        .creds h2 { font-size: 36px; margin-bottom: 8px; }
+        .creds p { color: var(--text-light); margin-bottom: 36px; }
+        .creds-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+        .cred-card { background: #fff; border-radius: 14px; padding: 24px; text-align: left; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+        .cred-card h4 { font-size: 15px; margin-bottom: 12px; color: var(--text-dark); }
+        .cred-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--cream-dark); }
+        .cred-item:last-child { border: none; }
+        .cred-item .key { color: var(--text-light); }
+        .cred-item .val { font-family: monospace; color: var(--forest); background: var(--cream); padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+
+        /* FOOTER */
+        footer { background: var(--text-dark); color: rgba(255,255,255,0.5); text-align: center; padding: 28px; font-size: 13px; }
+        footer span { color: var(--saffron); }
+    </style>
+</head>
+<body>
+<nav>
+    <div class="nav-brand">
+        <div class="nav-logo"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <h2>AyushVeda</h2>
+    </div>
+        <div class="nav-links">
+            <div class="dropdown">
+                <button class="nav-btn nav-btn-outline">Login</button>
+                <div class="dropdown-content">
+                    <a href="/patient/login">Patient Portal</a>
+                    <a href="/doctor/login">Doctor Portal</a>
+                    <a href="/admin/login">Admin Dashboard</a>
+                </div>
+            </div>
+            <a href="/patient/signup" class="nav-btn nav-btn-fill">Sign Up</a>
+        </div>
+    </nav>
+    <style>
+        /* DROPDOWN STYLES */
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content {
+            display: none; position: absolute; right: 0; background-color: #fff;
+            min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border-radius: 12px;
+            z-index: 1000; overflow: visible; top: 100%; border: 1px solid rgba(0,0,0,0.05);
+            padding-top: 5px; margin-top: 5px;
+        }
+        .dropdown-content::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            right: 0;
+            height: 15px;
+            background: transparent;
+        }
+        .dropdown-content a {
+            color: var(--text-dark); padding: 12px 20px; text-decoration: none;
+            display: block; font-size: 14px; transition: background 0.2s; border-bottom: 1px solid var(--cream-dark);
+        }
+        .dropdown-content a:last-child { border: none; }
+        .dropdown-content a:hover { background-color: var(--cream); color: var(--forest); }
+        .dropdown:hover .dropdown-content { display: block; }
+        .dropdown:hover .nav-btn-outline { background: var(--forest); color: #fff; }
+    </style>
+
+<section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-decoration"></div>
+    <div class="hero-circle">
+        <div class="hero-image"><img src="/static/images/hero_image.png" alt="AyushVeda AI"></div>
+    </div>
+    <div class="hero-content">
+        <div class="hero-tag">🌱 AI-Powered Health Management System</div>
+        <h1>Ancient <em>Wisdom,</em><br><strong>Modern</strong> Care</h1>
+        <p>A comprehensive digital platform uniting Ayurvedic medicine & Modern Medicine with machine learning — empowering doctors, patients, and administrators with intelligent healthcare management.</p>
+        <div class="hero-btns">
+            <a href="/patient/signup" class="hero-btn hero-btn-primary"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Get Started (Sign Up) →</a>
+            <a href="/patient/login" class="hero-btn hero-btn-secondary">Patient Login</a>
+        </div>
+    </div>
+</section>
+
+<div class="stats-bar">
+    <div class="stat-item"><div class="val">20+</div><div class="lbl">Diseases Covered</div></div>
+    <div class="stat-item"><div class="val">100+</div><div class="lbl">Ayurvedic Medicines</div></div>
+    <div class="stat-item"><div class="val">3</div><div class="lbl">User Portals</div></div>
+    <div class="stat-item"><div class="val">ML</div><div class="lbl">Disease Prediction</div></div>
+</div>
+
+<section class="portals">
+    <div class="section-header">
+        <span class="section-tag">User Portals</span>
+        <h2>Three Roles, One Platform</h2>
+        <p>Tailored experiences for every stakeholder in Ayurvedic healthcare.</p>
+    </div>
+    <div class="portals-grid">
+        <div class="portal-card admin">
+            <div class="portal-header" data-emoji="⚙">
+                <div class="portal-icon">🛡️</div>
+                <h3>Admin</h3>
+                <p>Complete system control and management</p>
+            </div>
+            <div class="portal-body">
+                <ul class="portal-features">
+                    <li>Doctor & Patient CRUD Management</li>
+                    <li>Doctor-Patient Assignment</li>
+                    <li>Appointment Scheduling</li>
+                    <li>Payment Processing (Card/Cash/UPI)</li>
+                    <li>Automated Email Notifications</li>
+                </ul>
+                <a href="/admin/login" class="portal-login-btn">Login as Admin →</a>
+            </div>
+        </div>
+        <div class="portal-card doctor">
+            <div class="portal-header" data-emoji="🔬">
+                <div class="portal-icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+                <h3>Doctor</h3>
+                <p>AI-assisted diagnosis & prescription</p>
+            </div>
+            <div class="portal-body">
+                <ul class="portal-features">
+                    <li>ML-Based Disease Prediction</li>
+                    <li>Ayurvedic Medicine Suggestions</li>
+                    <li>Patient History Access</li>
+                    <li>Custom Prescription Generation</li>
+                    <li>Dietary & Lifestyle Advice</li>
+                </ul>
+                <a href="/doctor/login" class="portal-login-btn">Login as Doctor →</a>
+            </div>
+        </div>
+        <div class="portal-card patient">
+            <div class="portal-header" data-emoji="💊">
+                <div class="portal-icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+                <h3>Patient</h3>
+                <p>Personal health records at a glance</p>
+            </div>
+            <div class="portal-body">
+                <ul class="portal-features">
+                    <li>Complete Treatment History</li>
+                    <li>Prescription Details</li>
+                    <li>Appointment Overview</li>
+                    <li>Payment Records</li>
+                    <li>Profile Management</li>
+                </ul>
+                <a href="/patient/login" class="portal-login-btn">Login as Patient →</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="features">
+    <div class="section-header">
+        <span class="section-tag">Key Features</span>
+        <h2>Built for Modern Ayurveda</h2>
+        <p style="color:rgba(255,255,255,0.5)">Intelligent tools for traditional healing.</p>
+    </div>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>ML Disease Prediction</h3>
+            <p>Random Forest Classifier trained on symptom data predicts diseases with high accuracy.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+            <h3>Smart Prescriptions</h3>
+            <p>Auto-fetches Ayurvedic medicines, dosages and durations from curated database.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📧</div>
+            <h3>Auto Notifications</h3>
+            <p>Patients receive automatic email alerts when their doctor is reassigned.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+            <h3>Payment Management</h3>
+            <p>Record payments via Card, Cash or UPI with automatic transaction ID generation.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+            <h3>Treatment History</h3>
+            <p>Full longitudinal patient records accessible across doctor assignments.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Role-Based Access</h3>
+            <p>Secure, role-specific portals ensuring data privacy and integrity.</p>
+        </div>
+    </div>
+</section>
+
+<section class="creds">
+    <div class="creds-inner">
+        <h2>Demo Credentials</h2>
+        <p>Use these credentials to explore the system</p>
+        <div class="creds-grid">
+            <div class="cred-card">
+                <h4>🛡️ Admin Login</h4>
+                <div class="cred-item"><span class="key">Email</span><span class="val">admin@ayurcare.com</span></div>
+                <div class="cred-item"><span class="key">Password</span><span class="val">admin123</span></div>
+                <div class="cred-item"><span class="key">URL</span><span class="val">/admin/login</span></div>
+            </div>
+            <div class="cred-card">
+                <h4><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Doctor Login</h4>
+                <div class="cred-item"><span class="key">Email</span><span class="val">doctor@ayurcare.com</span></div>
+                <div class="cred-item"><span class="key">Password</span><span class="val">doctor123</span></div>
+                <div class="cred-item"><span class="key">URL</span><span class="val">/doctor/login</span></div>
+            </div>
+            <div class="cred-card">
+                <h4><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Patient Login</h4>
+                <div class="cred-item"><span class="key">Email</span><span class="val">patient@ayurcare.com</span></div>
+                <div class="cred-item"><span class="key">Password</span><span class="val">patient123</span></div>
+                <div class="cred-item"><span class="key">URL</span><span class="val">/patient/login</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p>Built with <span>♥</span> using Python Flask · AyushVeda © 2026 · Healthcare Beyond Boundaries</p>
+</footer>
+</body>
+</html>

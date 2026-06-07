@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+{% block breadcrumb %}Doctor / Profile{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Clinical</span>
+<a href="/doctor/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<span class="nav-section-label">Account</span>
+<a href="/doctor/profile" class="nav-link active"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start">
+    <div class="card" style="text-align:center">
+        <div style="width:90px;height:90px;background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:700;color:#E8611A;margin:0 auto 16px">
+            {{ user.name[0].upper() }}
+        </div>
+        <h3 style="font-size:22px;margin-bottom:4px">{{ user.name }}</h3>
+        <p style="color:#7A6558;font-size:13px">{{ user.specialization or 'Ayurvedic Physician' }}</p>
+        <span class="badge badge-orange" style="margin-top:10px">{{ user.qualification or 'BAMS' }}</span>
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid #F0E8D8;text-align:left">
+            <div style="font-size:13px;color:#7A6558;margin-bottom:8px">📧 {{ user.email }}</div>
+            <div style="font-size:13px;color:#7A6558;margin-bottom:8px">📞 {{ user.phone or 'Not set' }}</div>
+            <div style="font-size:13px;color:#7A6558">🏅 {{ user.experience or 0 }} years experience</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Update Profile</h3>
+        </div>
+        <form method="POST">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="name" value="{{ user.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" value="{{ user.phone or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Specialization</label>
+                    <input type="text" name="specialization" value="{{ user.specialization or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Qualification</label>
+                    <input type="text" name="qualification" value="{{ user.qualification or '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Years of Experience</label>
+                    <input type="number" name="experience" value="{{ user.experience or 0 }}" min="0">
+                </div>
+            </div>
+            <div style="margin-top:24px;padding-top:24px;border-top:1px solid #F0E8D8">
+                <h4 style="font-size:16px;margin-bottom:16px;color:#4A3728">Change Password</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" name="new_password" placeholder="Leave blank to keep current">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" placeholder="Confirm new password">
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

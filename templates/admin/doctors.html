@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Doctors{% endblock %}
+{% block page_title %}Doctor Management{% endblock %}
+{% block breadcrumb %}Admin / Doctors{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Management</span>
+<a href="/admin/doctors" class="nav-link active"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<span class="nav-section-label">Account</span>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">All Doctors ({{ doctors|length }})</h3>
+        <a href="/admin/doctors/add" class="btn btn-primary">+ Add Doctor</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Name</th><th>Specialization</th><th>Qualification</th><th>Experience</th><th>Patients</th><th>Contact</th><th>Actions</th></tr></thead>
+            <tbody>
+            {% for d in doctors %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:36px;height:36px;background:#E8F5E9;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;color:#2D5016;font-size:14px">{{ d.name[0] }}</div>
+                        <div><strong>{{ d.name }}</strong><br><small style="color:#7A6558">{{ d.email }}</small></div>
+                    </div>
+                </td>
+                <td><span class="badge badge-green">{{ d.specialization or 'General' }}</span></td>
+                <td>{{ d.qualification or '—' }}</td>
+                <td>{{ d.experience or 0 }} yrs</td>
+                <td><span class="badge badge-blue">{{ d.patient_count }}</span></td>
+                <td>{{ d.phone or '—' }}</td>
+                <td>
+                    <div class="btn-group">
+                        <a href="/admin/doctors/edit/{{ d.id }}" class="btn btn-outline btn-sm"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Edit</a>
+                        <a href="/admin/doctors/delete/{{ d.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Delete this doctor?')">🗑️</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="text-align:center;padding:48px;color:#7A6558">No doctors registered yet. <a href="/admin/doctors/add" style="color:#E8611A">Add one →</a></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

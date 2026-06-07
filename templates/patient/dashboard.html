@@ -1,0 +1,729 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard{% endblock %}
+{% block page_title %}My Health Dashboard{% endblock %}
+{% block breadcrumb %}Patient / Dashboard{% endblock %}
+{% block nav %}
+<span class="nav-section-label">My Health</span>
+<a href="/patient/dashboard" class="nav-link active"><span class="icon">🏠</span> Dashboard</a>
+<a href="/patient/history" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Treatment History</a>
+<a href="/patient/map" class="nav-link"><span class="icon">📍</span> Map</a>
+<a href="/patient/consult" class="nav-link"><span class="icon">📞</span> Consult a Doctor</a>
+<span class="nav-section-label">Account</span>
+<a href="/patient/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<!-- Doctor Card -->
+{% if patient.doctor_name %}
+<div style="background:linear-gradient(135deg,#2D5016,#4A7C22);border-radius:16px;padding:24px;margin-bottom:24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="width:60px;height:60px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+    <div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Your Ayurvedic Physician</div>
+        <div style="font-size:22px;font-family:'Cormorant Garamond',serif;color:#fff;font-weight:600">{{ patient.doctor_name }}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px">{{ patient.specialization or 'General Ayurveda' }} · 📞 {{ patient.doctor_phone or 'Contact via clinic' }}</div>
+    </div>
+</div>
+{% else %}
+<div style="background:#FFF3E0;border:1px dashed #E8611A;border-radius:12px;padding:18px;margin-bottom:24px;color:#E8611A;font-size:14px">
+    <img src="/static/images/warning_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> No doctor assigned yet. Please contact the clinic admin.
+</div>
+{% endif %}
+
+<!-- Pre-Consultation Triage Widget -->
+<div class="card" style="margin-bottom:24px;border:2px solid #E8611A;background:linear-gradient(135deg,#FFF3E0,#FFE0B2)">
+    <div class="card-header" style="border-bottom:none;padding-bottom:0">
+        <div>
+            <h3 class="card-title" style="color:#E8611A;font-size:20px">🤖 Pre-Consultation AI Triage</h3>
+            <p style="color:#7A6558;font-size:14px;margin-top:6px">Please describe what you are feeling today before your doctor visits.</p>
+        </div>
+    </div>
+    <div style="padding:0 24px 24px 24px">
+        {% if patient.triage_symptoms %}
+            <div id="triage_success_alert" style="background:#E8F5E9;color:#2D5016;padding:16px;border-radius:8px;font-size:14px;border:1px solid #81C784">
+                <strong>✅ Triage Complete!</strong> Your symptoms have been recorded and your doctor has been notified.
+                <div style="margin-top:8px;font-size:13px;color:#4A7C22">
+                    <em>"{{ patient.triage_raw_text }}"</em>
+                </div>
+            </div>
+            <button id="update_symptoms_btn" class="btn btn-outline btn-sm" onclick="showEmptyTriage()" style="margin-top:12px">Update Symptoms</button>
+        {% endif %}
+        
+        <div id="triage_form_container" {% if patient.triage_symptoms %}style="display:none;margin-top:16px"{% endif %}>
+            <div style="display:flex;gap:10px;margin-bottom:12px">
+                <button type="button" onclick="startPatientDictation()" class="btn btn-outline" id="triage_voice_btn" style="border-color:#E8611A;color:#E8611A;background:#fff;font-size:18px;padding:0 14px;" title="Dictate Symptoms">🎙️</button>
+                <textarea id="triage_text" rows="3" placeholder="I have a severe headache and have been experiencing nausea since yesterday..." style="flex:1;padding:12px;border:1px solid #D0C8C0;border-radius:8px;font-family:'DM Sans';font-size:14px;margin-bottom:0;box-sizing:border-box;"></textarea>
+            </div>
+            <button id="triage_btn" class="btn btn-primary" onclick="submitTriage()" style="background:#E8611A;border-color:#E8611A;box-shadow:none">Send to AI Triage</button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom:24px">
+    <div class="stat-card">
+        <div class="stat-icon green"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">{{ prescriptions|length }}</div>
+            <div class="stat-label">Prescriptions Received</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">{{ appointments|length }}</div>
+            <div class="stat-label">Total Appointments</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">₹{{ payments|sum(attribute='amount')|int }}</div>
+            <div class="stat-label">Total Paid</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">🩸</div>
+        <div>
+            <div class="stat-value">{{ patient.blood_group or 'N/A' }}</div>
+            <div class="stat-label">Blood Group</div>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <!-- Latest Prescription -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Latest Prescription</h3>
+            <a href="/patient/history" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        {% if prescriptions %}
+        {% set pr = prescriptions[0] %}
+        <div style="background:#F1F8E9;border-radius:12px;padding:20px;margin-bottom:16px">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#1A1208;margin-bottom:4px">{{ pr.predicted_disease }}</div>
+            <div style="font-size:12px;color:#4A7C22;margin-bottom:12px">Dr. {{ pr.doctor_name }} · {{ pr.created_at[:10] }}</div>
+            <div style="font-size:13px;color:#4A3728;margin-bottom:8px"><strong>Medicines:</strong> {{ pr.medicines[:100] }}{% if pr.medicines|length > 100 %}...{% endif %}</div>
+            <div style="font-size:13px;color:#4A3728"><strong>Duration:</strong> {{ pr.duration }}</div>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#7A6558">No prescriptions yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Appointments -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> My Appointments</h3>
+        </div>
+        {% if appointments %}
+        {% for a in appointments[:4] %}
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #F0E8D8">
+            <div style="width:46px;height:46px;background:#E8F5E9;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+                <span style="font-size:14px;font-weight:700;color:#2D5016">{{ a.appointment_date[-2:] }}</span>
+                <span style="font-size:10px;color:#7A6558">{{ a.appointment_date[5:7] }}/{{ a.appointment_date[:4] }}</span>
+            </div>
+            <div>
+                <div style="font-weight:600;font-size:14px">{{ a.doctor_name }}</div>
+                <div style="font-size:12px;color:#7A6558">🕐 {{ a.appointment_time }}</div>
+            </div>
+            <div style="margin-left:auto">
+                <span class="badge {% if a.status == 'Scheduled' %}badge-green{% else %}badge-blue{% endif %}">{{ a.status }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#7A6558">No appointments yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- Payment History -->
+    <div class="card" style="grid-column:1/-1">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Payment History</h3>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Transaction ID</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for pay in payments %}
+                <tr>
+                    <td>{{ pay.created_at[:16] }}</td>
+                    <td><strong style="color:#2D5016">₹{{ pay.amount }}</strong></td>
+                    <td>
+                        {% if pay.payment_method == 'Card' %}
+                        <span class="badge badge-blue"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Card</span>
+                        {% elif pay.payment_method == 'Cash' %}
+                        <span class="badge badge-green"><img src="/static/images/cash_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Cash</span>
+                        {% else %}
+                        <span class="badge badge-orange"><img src="/static/images/upi_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> UPI</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-family:monospace;font-size:12px;color:#7A6558">{{ pay.transaction_id }}</td>
+                    <td><span class="badge badge-green">{{ pay.status }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;padding:32px;color:#7A6558">No payments.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Access: Consult a Doctor -->
+<div style="background:linear-gradient(135deg,#0369A1,#0C4A6E); border-radius:14px; padding:20px 24px; margin-bottom:24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+    <div style="font-size:36px;">📞</div>
+    <div style="flex:1; min-width:200px;">
+        <div style="font-size:16px; font-weight:700; color:#fff; margin-bottom:4px;">Consult a Doctor</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.7);">Call or video conference with our physicians directly using their phone numbers.</div>
+    </div>
+    <a href="/patient/consult"
+       style="background:#fff; color:#0369A1; padding:12px 22px; border-radius:10px; font-weight:700; font-size:14px; text-decoration:none; white-space:nowrap; transition:all 0.2s; box-shadow:0 3px 10px rgba(0,0,0,0.15);"
+       onmouseover="this.style.transform='translateY(-2px)'"
+       onmouseout="this.style.transform='translateY(0)'">
+        View Doctors →
+    </a>
+</div>
+
+<!-- Community Health Section -->
+
+<!-- Community Health Section -->
+
+
+
+<div class="card" style="margin-bottom:24px; background:#FBF7F0; border:1px solid #D0C8C0; margin-top:24px;">
+    <div style="margin-bottom:20px;">
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:22px;color:#2D5016;display:flex;align-items:center;gap:8px; margin:0 0 20px 0;">
+            <span style="font-size:24px;">🏥</span> Community Health Insights
+        </h3>
+        <p style="color:#666; margin:0 0 15px 0; font-size:14px;">Disease distribution among community members to help you stay informed about prevalent health conditions.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
+        <!-- Bar Chart -->
+        <div style="background:#FFF; padding:15px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <h4 style="font-size:16px; color:#2D5016; margin:0 0 15px 0; font-weight:600;">📊 Disease Distribution</h4>
+            <div style="position:relative; height:300px; width:100%;">
+                <canvas id="diseaseChart"></canvas>
+            </div>
+            <p id="noDataMessage" style="text-align:center; color:#999; margin:10px 0 0 0; display:none;">No diagnostic data available yet.</p>
+        </div>
+
+        <!-- Disease Precautions -->
+        <div style="background:#FFF; padding:15px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); overflow-y:auto; max-height:400px;">
+            <h4 style="font-size:16px; color:#2D5016; margin:0 0 15px 0; font-weight:600;">💊 Precautions & Prevention</h4>
+            <div id="precautionsContainer" style="font-size:13px;">
+                <p style="color:#999; text-align:center;">Loading precautions...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Community Statistics -->
+    <div style="background:#E8F5E9; padding:15px; border-radius:12px; border-left:4px solid #2D5016;">
+        <p style="margin:0; font-size:13px; color:#666; font-style:italic;">This data shows disease distribution among registered patients in the community.</p>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @keyframes bounce {
+        from {
+            transform: translateY(0);
+        }
+
+        to {
+            transform: translateY(-10px);
+        }
+    }
+
+    /* Community Health Styles */
+    #precautionsContainer {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .precaution-item {
+        padding: 12px;
+        background: #F5F5F5;
+        border-left: 3px solid #2D5016;
+        border-radius: 4px;
+        margin-bottom: 8px;
+    }
+
+    .precaution-item strong {
+        color: #2D5016;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .precaution-item p {
+        margin: 4px 0;
+        color: #666;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .disease-stat-badge {
+        display: inline-block;
+        background: #E8F5E9;
+        color: #2D5016;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-right: 4px;
+    }
+
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Disease Precautions Database
+    const DISEASE_PRECAUTIONS = {
+        'AIDS': {
+            icon: '⚠️',
+            precautions: [
+                'Maintain antiretroviral therapy (ART) compliance',
+                'Regular CD4 count and viral load monitoring',
+                'Safe practices to prevent transmission to others',
+                'Nutritious diet with adequate protein and minerals'
+            ]
+        },
+        'HIV/AIDS': {
+            icon: '⚠️',
+            precautions: [
+                'Consistent use of antiretroviral medications',
+                'Safe sexual practices and bloodborne pathogen precautions',
+                'Regular immune system monitoring',
+                'Maintain vaccinations as recommended'
+            ]
+        },
+        'Diabetes': {
+            icon: '🩺',
+            precautions: [
+                'Monitor blood sugar levels regularly',
+                'Follow prescribed diet with controlled carbohydrates',
+                'Regular exercise 150 minutes per week',
+                'Annual eye, foot and kidney check-ups'
+            ]
+        },
+        'Hypertension': {
+            icon: '❤️',
+            precautions: [
+                'Monitor blood pressure daily',
+                'Reduce sodium intake (< 2300mg/day)',
+                'Maintain healthy weight and regular exercise',
+                'Manage stress with relaxation techniques'
+            ]
+        },
+        'Asthma': {
+            icon: '🫁',
+            precautions: [
+                'Avoid known allergens and triggers',
+                'Use inhalers as prescribed',
+                'Keep rescue inhaler always available',
+                'Avoid cold air and strenuous activity without pre-medication'
+            ]
+        },
+        'Liver Disease': {
+            icon: '🔬',
+            precautions: [
+                'Avoid alcohol completely',
+                'Low sodium diet to prevent fluid accumulation',
+                'Limit protein intake as directed',
+                'Regular liver function tests'
+            ]
+        },
+        'Kidney Disease': {
+            icon: '💧',
+            precautions: [
+                'Monitor fluid intake carefully',
+                'Low sodium and potassium diet',
+                'Regular kidney function tests',
+                'Follow prescribed medications strictly'
+            ]
+        },
+        'Heart Disease': {
+            icon: '💓',
+            precautions: [
+                'Take cardiac medications as prescribed',
+                'Regular moderate exercise under doctor supervision',
+                'Low-fat, low-sodium diet',
+                'Monitor blood pressure and cholesterol'
+            ]
+        },
+        'Thyroid Disorder': {
+            icon: '📍',
+            precautions: [
+                'Take thyroid medication at same time daily',
+                'Avoid foods rich in goitrogens (raw cruciferous vegetables)',
+                'Regular TSH level monitoring',
+                'Maintain stable iodine intake'
+            ]
+        },
+        'Dengue Fever': {
+            icon: '🦟',
+            precautions: [
+                'Use mosquito repellent with DEET',
+                'Wear long sleeves and pants during peak mosquito hours',
+                'Maintain adequate hydration',
+                'Seek medical care if fever persists > 3 days'
+            ]
+        },
+        'Typhoid Fever': {
+            icon: '🌡️',
+            precautions: [
+                'Complete full course of prescribed antibiotics',
+                'Maintain strict hygiene practices',
+                'Drink clean boiled water only',
+                'Vaccination for prevention if traveling to endemic areas'
+            ]
+        },
+        'Chickenpox': {
+            icon: '🔴',
+            precautions: [
+                'Avoid scratching to prevent secondary infection',
+                'Use calamine lotion for itching',
+                'Maintain personal hygiene',
+                'Rest and adequate fluid intake'
+            ]
+        },
+        'Gastritis': {
+            icon: '🍽️',
+            precautions: [
+                'Avoid spicy, acidic, and fatty foods',
+                'Eat small frequent meals',
+                'Avoid alcohol and NSAIDs',
+                'Manage stress with relaxation techniques'
+            ]
+        },
+        'Peptic Ulcer': {
+            icon: '🔴',
+            precautions: [
+                'Avoid triggers like alcohol and NSAIDs',
+                'Take antacids as prescribed',
+                'Eat small frequent meals',
+                'Manage stress effectively'
+            ]
+        },
+        'Influenza': {
+            icon: '🦠',
+            precautions: [
+                'Get annual flu vaccination',
+                'Practice respiratory hygiene',
+                'Maintain adequate rest',
+                'Stay hydrated'
+            ]
+        },
+        'Common Cold': {
+            icon: '🤧',
+            precautions: [
+                'Frequent hand washing prevents spread',
+                'Avoid touching face',
+                'Use tissues for sneezing',
+                'Get adequate rest and fluids'
+            ]
+        },
+        'Anxiety': {
+            icon: '😰',
+            precautions: [
+                'Practice deep breathing and meditation',
+                'Regular physical exercise',
+                'Limit caffeine and alcohol',
+                'Seek professional mental health support'
+            ]
+        },
+        'Hepatitis A': {
+            icon: '🔬',
+            precautions: [
+                'Maintain excellent personal hygiene',
+                'Drink only clean boiled water',
+                'Proper handwashing before meals',
+                'Vaccination available for prevention'
+            ]
+        }
+    };
+
+    let diseaseChart = null;
+
+    window.addEventListener('DOMContentLoaded', function() {
+        loadCommunityHealth();
+    });
+
+    function loadCommunityHealth() {
+        fetch('/api/community_health')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.diseases && data.diseases.length > 0) {
+                    displayDiseaseChart(data.diseases);
+                    displayPrecautions(data.diseases);
+                } else {
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('precautionsContainer').innerHTML = '<p style="color:#999; text-align:center;">No patient diagnostic data available yet.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading community health:', error);
+                document.getElementById('noDataMessage').style.display = 'block';
+                document.getElementById('precautionsContainer').innerHTML = '<p style="color:#999; text-align:center;">Error loading health data. Please try again later.</p>';
+            });
+    }
+
+    function displayDiseaseChart(diseases) {
+        const ctx = document.getElementById('diseaseChart');
+        if (!ctx) return;
+
+        // Limit to top 10 diseases for better visualization
+        const topDiseases = diseases.slice(0, 10);
+        const diseaseNames = topDiseases.map(d => d.disease);
+        const patientCounts = topDiseases.map(d => d.patient_count);
+        
+        // Generate colors
+        const colors = [
+            '#2D5016', '#4CAF50', '#8BC34A', '#CDDC39', '#FFC107',
+            '#FF9800', '#FF5722', '#F44336', '#E91E63', '#9C27B0'
+        ];
+
+        if (diseaseChart) {
+            diseaseChart.destroy();
+        }
+
+        diseaseChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: diseaseNames,
+                datasets: [{
+                    label: 'Number of Patients',
+                    data: patientCounts,
+                    backgroundColor: colors.slice(0, topDiseases.length),
+                    borderColor: '#2D5016',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Patients Affected: ' + context.parsed.x;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Normalize raw ML/Kaggle disease names to DISEASE_PRECAUTIONS keys
+    const DISEASE_NAME_NORMALIZE = {
+        'AIDS': 'HIV/AIDS',
+        'Bronchial Asthma': 'Asthma',
+        'Chicken pox': 'Chickenpox',
+        'Dengue': 'Dengue Fever',
+        'Diabetes ': 'Diabetes',
+        'GERD': 'Gastritis',
+        'Gastroenteritis': 'Gastritis',
+        'Hypertension ': 'Hypertension',
+        'Hyperthyroidism': 'Thyroid Disorder',
+        'Hypothyroidism': 'Thyroid Disorder',
+        'Hypoglycemia': 'Diabetes',
+        'Jaundice': 'Liver Disease',
+        'Chronic cholestasis': 'Liver Disease',
+        'Alcoholic hepatitis': 'Liver Disease',
+        'Osteoarthristis': 'Osteoarthritis',
+        'Peptic ulcer diseae': 'Peptic Ulcer',
+        'Typhoid': 'Typhoid Fever',
+        'Urinary tract infection': 'Urinary Tract Infection',
+        'hepatitis A': 'Hepatitis A',
+        'Hepatitis C': 'Hepatitis B',
+        'Hepatitis D': 'Hepatitis B',
+        'Hepatitis E': 'Hepatitis B',
+        '(vertigo) Paroymsal  Positional Vertigo': 'Migraine',
+        'Paralysis (brain hemorrhage)': 'Hypertension',
+        'Cervical spondylosis': 'Arthritis',
+        'Heart attack': 'Heart Disease',
+        'Varicose veins': 'Arthritis',
+        'Fungal infection': 'Skin Allergy',
+        'Allergy': 'Skin Allergy',
+        'Impetigo': 'Skin Allergy',
+        'Drug Reaction': 'Skin Allergy',
+        'Dimorphic hemmorhoids(piles)': 'Arthritis',
+    };
+
+    const CONTAGIOUS_DISEASES = ['AIDS', 'HIV/AIDS', 'Dengue Fever', 'Typhoid Fever', 'Chickenpox', 'Hepatitis A', 'Urinary Tract Infection', 'Influenza'];
+
+    function displayPrecautions(diseases) {
+        const container = document.getElementById('precautionsContainer');
+        let html = '';
+
+        // Show top 10 diseases with their precautions
+        const topDiseases = diseases.slice(0, 10);
+
+        topDiseases.forEach(disease => {
+            // Normalize raw disease name
+            const rawName = (disease.disease || '').trim();
+            const lookupName = DISEASE_NAME_NORMALIZE[rawName] || DISEASE_NAME_NORMALIZE[disease.disease] || rawName;
+
+            // Spread copy to avoid mutating shared DISEASE_PRECAUTIONS object
+            const basePrecau = DISEASE_PRECAUTIONS[lookupName] || DISEASE_PRECAUTIONS[rawName];
+            const precauData = basePrecau
+                ? { icon: basePrecau.icon, precautions: [...basePrecau.precautions] }
+                : { icon: '💊', precautions: ['Practice preventive healthcare measures', 'Regular check-ups recommended', 'Follow medical advice strictly'] };
+
+            const isContagious = CONTAGIOUS_DISEASES.includes(lookupName) || CONTAGIOUS_DISEASES.includes(rawName);
+            const transmissionNote = isContagious
+                ? `<li style="margin:4px 0; color:#C62828;">⚠️ Spreads from person to person — take precautions around infected individuals</li>`
+                : `<li style="margin:4px 0; color:#1B5E20;">✅ Does not spread directly from person to person</li>`;
+
+            html += `
+                <div class="precaution-item">
+                    <strong>${precauData.icon} ${rawName} <span style="font-weight:normal;color:#7A6558;font-size:11px;">(${disease.percentage}% of diagnosed)</span></strong>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #666; font-size: 12px; line-height:1.5;">`;
+
+            precauData.precautions.forEach(precaution => {
+                html += `<li style="margin: 4px 0;">${precaution}</li>`;
+            });
+
+            html += `${transmissionNote}</ul></div>`;
+        });
+
+        container.innerHTML = html || '<p style="color:#999; text-align:center;">No precautions data available.</p>';
+    }
+
+</script>
+
+</script>
+
+<script>
+async function submitTriage() {
+    const text = document.getElementById('triage_text').value.trim();
+    if (!text) {
+        alert("Please describe your symptoms first.");
+        return;
+    }
+    
+    const btn = document.getElementById('triage_btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Processing...';
+    btn.disabled = true;
+    
+    try {
+        const resp = await fetch('/api/patient_triage', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: text})
+        });
+        const data = await resp.json();
+        
+        if(data.success) {
+            alert('Your triage is complete! Found ' + data.symptoms.length + ' symptoms.');
+            window.location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch(e) {
+        alert("Failed to submit triage.");
+        console.error(e);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function showEmptyTriage() {
+    const alertBox = document.getElementById('triage_success_alert');
+    if (alertBox) alertBox.style.display = 'none';
+    const updateBtn = document.getElementById('update_symptoms_btn');
+    if (updateBtn) updateBtn.style.display = 'none';
+    
+    // Provide a completely empty triage state allowing new input
+    const formContainer = document.getElementById('triage_form_container');
+    if (formContainer) formContainer.style.display = 'block';
+    
+    const triageText = document.getElementById('triage_text');
+    if (triageText) triageText.value = '';
+}
+
+function startPatientDictation() {
+    if (window.hasOwnProperty('webkitSpeechRecognition') || window.hasOwnProperty('SpeechRecognition')) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        const voiceBtn = document.getElementById('triage_voice_btn');
+        let originalText = voiceBtn.textContent;
+        voiceBtn.textContent = '🔴';
+        
+        recognition.start();
+
+        recognition.onresult = function(e) {
+            const currentText = document.getElementById('triage_text').value;
+            // Append the dictated text gracefully if they type AND dictate
+            const newText = e.results[0][0].transcript;
+            document.getElementById('triage_text').value = currentText ? currentText + " " + newText : newText;
+            recognition.stop();
+            voiceBtn.textContent = originalText;
+        };
+
+        recognition.onerror = function(e) {
+            console.error(e);
+            recognition.stop();
+            voiceBtn.textContent = originalText;
+            alert("Voice recognition failed: " + e.error);
+        };
+    } else {
+        alert("Your browser does not support Voice Recognition. Please use Google Chrome.");
+    }
+}
+</script>
+
+<script>
+function startVideoCall(doctorName, doctorPhone) {
+    const modal = document.getElementById('videoCallModal');
+    const info = document.getElementById('videoCallDoctorInfo');
+    const telLink = document.getElementById('videoCallTel');
+    info.textContent = 'Dr. ' + doctorName + ' · ' + doctorPhone;
+    telLink.href = 'tel:' + doctorPhone;
+    modal.style.display = 'flex';
+    // Animate in
+    modal.querySelector('div').style.transform = 'scale(0.9)';
+    modal.querySelector('div').style.transition = 'transform 0.2s ease';
+    setTimeout(() => { modal.querySelector('div').style.transform = 'scale(1)'; }, 10);
+}
+
+function closeVideoModal() {
+    const modal = document.getElementById('videoCallModal');
+    modal.style.display = 'none';
+}
+
+// Close modal on backdrop click
+document.getElementById('videoCallModal').addEventListener('click', function(e) {
+    if (e.target === this) closeVideoModal();
+});
+</script>
+{% endblock %}

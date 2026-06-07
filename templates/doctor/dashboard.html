@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Doctor Dashboard{% endblock %}
+{% block page_title %}Doctor Dashboard{% endblock %}
+{% block breadcrumb %}Doctor / Dashboard{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/doctor/dashboard" class="nav-link active"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Clinical</span>
+<a href="/doctor/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<span class="nav-section-label">Account</span>
+<a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon orange"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">{{ stats.patients }}</div>
+            <div class="stat-label">My Patients</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">{{ stats.appointments }}</div>
+            <div class="stat-label">Appointments Today</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
+        <div>
+            <div class="stat-value">{{ stats.prescriptions }}</div>
+            <div class="stat-label">Prescriptions Given</div>
+        </div>
+    </div>
+    <div class="stat-card" style="background:linear-gradient(135deg,#2D5016,#4A7C22);border:none">
+        <div style="font-size:32px">🤖</div>
+        <div>
+            <div class="stat-value" style="color:#fff">ML</div>
+            <div class="stat-label" style="color:rgba(255,255,255,0.7)">AI Disease Prediction Active</div>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <!-- Upcoming Appointments -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Upcoming Appointments</h3>
+            <a href="/doctor/appointments" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        {% if appointments %}
+        {% for a in appointments %}
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #F0E8D8">
+            <div style="width:46px;height:46px;background:#FFF3E0;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+                <span style="font-size:14px;font-weight:700;color:#E8611A">{{ a.appointment_date[-2:] }}</span>
+                <span style="font-size:10px;color:#7A6558">{{ a.appointment_date[5:7] }}/{{ a.appointment_date[:4] }}</span>
+            </div>
+            <div>
+                <div style="font-weight:600;font-size:14px">{{ a.patient_name }}</div>
+                <div style="font-size:12px;color:#7A6558">🕐 {{ a.appointment_time }} · {{ a.reason[:40] }}{% if a.reason|length > 40 %}...{% endif %}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#7A6558">No upcoming appointments.</div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Prescriptions -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Recent Prescriptions</h3>
+            <a href="/doctor/patients" class="btn btn-outline btn-sm">All Patients</a>
+        </div>
+        {% if recent_prescriptions %}
+        {% for pr in recent_prescriptions %}
+        <div style="padding:12px 0;border-bottom:1px solid #F0E8D8">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-weight:600;font-size:14px">{{ pr.patient_name }}</span>
+                <span style="font-size:11px;color:#7A6558">{{ pr.created_at[:10] }}</span>
+            </div>
+            <div style="font-size:13px;color:#4A7C22;font-weight:500">{{ pr.predicted_disease }}</div>
+            <div style="font-size:12px;color:#7A6558;margin-top:2px">{{ pr.medicines[:60] }}{% if pr.medicines|length > 60 %}...{% endif %}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div style="text-align:center;padding:32px;color:#7A6558">No prescriptions yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- My Patients Quick View -->
+    <div class="card" style="grid-column:1/-1">
+        <div class="card-header">
+            <h3 class="card-title"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> My Patients</h3>
+            <a href="/doctor/patients" class="btn btn-primary btn-sm">View All</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">
+            {% for p in patients[:8] %}
+            <a href="/doctor/patients/{{ p.id }}" style="text-decoration:none">
+                <div style="border:1px solid #F0E8D8;border-radius:12px;padding:16px;text-align:center;transition:all 0.2s;background:#FBF7F0" onmouseover="this.style.borderColor='#E8611A';this.style.background='#FFF3E0'" onmouseout="this.style.borderColor='#F0E8D8';this.style.background='#FBF7F0'">
+                    <div style="width:48px;height:48px;background:#FFF3E0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#E8611A;margin:0 auto 10px">
+                        {{ p.name[0].upper() }}
+                    </div>
+                    <div style="font-weight:600;font-size:14px;color:#1A1208">{{ p.name }}</div>
+                    <div style="font-size:12px;color:#7A6558;margin-top:4px">{{ p.age or 'N/A' }} yrs · {{ p.gender or 'N/A' }}</div>
+                    <span class="badge badge-orange" style="margin-top:8px">{{ p.blood_group or 'N/A' }}</span>
+                </div>
+            </a>
+            {% else %}
+            <div style="grid-column:1/-1;text-align:center;padding:32px;color:#7A6558">No patients assigned yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
