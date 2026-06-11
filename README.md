@@ -14,7 +14,8 @@ http://localhost:5000
 🔑 Demo Credentials
 
 
-Role: Admin                                                doctor                                              Patient
+Role: Admin                             ,                   doctor                                ,              Patient
+
 Email: admin@ayushveda.com              ,              doctor@ayushveda.com                       ,         patient@ayushveda.com
 
 Password: admin123                       ,                 doctor123                              ,              patient123
