@@ -16,6 +16,7 @@ http://localhost:5000
 
 Role: Admin                                                doctor                                              Patient
 Email: admin@ayushveda.com              ,              doctor@ayushveda.com                       ,         patient@ayushveda.com
+
 Password: admin123                       ,                 doctor123                              ,              patient123
 
 
