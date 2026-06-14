@@ -18,15 +18,58 @@ def inject_now():
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
-MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
-SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
+
+# Detect if running under Vercel or similar serverless environments
+IS_VERCEL = os.environ.get('VERCEL') == '1' or os.environ.get('AWS_LAMBDA_FUNCTION_NAME') is not None
+
+if IS_VERCEL:
+    DB_PATH = os.path.join('/tmp', 'ayurcare.db')
+    MODEL_PATH = os.path.join('/tmp', 'disease_model.pkl')
+    SYMPTOMS_PATH = os.path.join('/tmp', 'symptoms_list.pkl')
+    
+    # Ensure /tmp directory exists (useful for local testing on Windows/macOS where it may not exist)
+    os.makedirs('/tmp', exist_ok=True)
+    
+    # Copy assets to /tmp if they don't already exist
+    import shutil
+    
+    ORIGINAL_DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
+    if not os.path.exists(DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
+        try:
+            shutil.copy2(ORIGINAL_DB_PATH, DB_PATH)
+            os.chmod(DB_PATH, 0o666)
+            print("[AyurCare] Copied database to /tmp")
+        except Exception as e:
+            print("[AyurCare] Error copying database to /tmp:", e)
+            
+    ORIGINAL_MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
+    if not os.path.exists(MODEL_PATH) and os.path.exists(ORIGINAL_MODEL_PATH):
+        try:
+            shutil.copy2(ORIGINAL_MODEL_PATH, MODEL_PATH)
+            os.chmod(MODEL_PATH, 0o666)
+            print("[AyurCare] Copied ML model to /tmp")
+        except Exception as e:
+            print("[AyurCare] Error copying ML model to /tmp:", e)
+            
+    ORIGINAL_SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
+    if not os.path.exists(SYMPTOMS_PATH) and os.path.exists(ORIGINAL_SYMPTOMS_PATH):
+        try:
+            shutil.copy2(ORIGINAL_SYMPTOMS_PATH, SYMPTOMS_PATH)
+            os.chmod(SYMPTOMS_PATH, 0o666)
+            print("[AyurCare] Copied symptoms list to /tmp")
+        except Exception as e:
+            print("[AyurCare] Error copying symptoms list to /tmp:", e)
+else:
+    DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
+    MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
+    SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
+
 EXCEL_PATH = os.path.join(BASE_DIR, 'data', 'ayurvedic_medicines.xlsx')
 ALLOPATHIC_EXCEL_PATH = os.path.join(BASE_DIR, 'data', 'allopathic_medicines.xlsx')
 
 # Try initializing Gemini Client
 genai_client = None
-if os.environ.get("GEMINI_API_KEY"):
+if os.environ.get("AIzaSyDbJZv5iqAE4eaGJXNnp29MN5IuQx3Gc9Q"):
     try:
         genai_client = genai.Client()
     except Exception as e:
@@ -38,7 +81,10 @@ def _train_and_save_model():
     import subprocess, sys
     print("[AyurCare] Training ML model...")
     train_script = os.path.join(BASE_DIR, 'ml_model', 'train_model.py')
-    subprocess.run([sys.executable, train_script], check=True)
+    env = os.environ.copy()
+    env['MODEL_PATH'] = MODEL_PATH
+    env['SYMPTOMS_PATH'] = SYMPTOMS_PATH
+    subprocess.run([sys.executable, train_script], env=env, check=True)
     print("[AyurCare] Model trained and saved.")
 
 def _load_model():
