@@ -1,7 +1,7 @@
 🌿 AyushVeda — ML-Based Ayurvedic Health Management System
 A full-stack web application built with Python Flask and SQLite, integrating a Random Forest ML model for Ayurvedic disease prediction.
 
-Live Link : https://ayush-veda-final.vercel.app/
+Live Link : http://ayush-veda-final.vercel.app/
 
 🚀 Quick Start
 1. Install Dependencies
