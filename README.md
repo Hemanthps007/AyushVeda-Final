@@ -5,9 +5,9 @@ Live Link : http://ayush-veda-final.vercel.app/
 
 🚀 Quick Start
 1. Install Dependencies
-bashpip install -r requirements.txt
+bash pip install -r requirements.txt
 2. Run the Application
-bashpython app.py
+bash python app.py
 3. Open in Browser
 http://localhost:5000
 
