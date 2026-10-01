@@ -401,6 +401,14 @@ data = [
         "Duration": "Until diarrhea resolves (few days)",
         "Diet_Advice": "Strict continuous hydration, zinc supplementation",
         "Lifestyle": "Strict hygiene and sanitation, boil water"
+    },
+    {
+        "Disease": "Varicose-vein-type condition",
+        "Medicine": "Micronized Purified Flavonoid Fraction (MPFF / Daflon), Horse Chestnut Extract",
+        "Dosage": "MPFF 500mg: 1 tablet twice daily with meals",
+        "Duration": "2-3 months as advised by vascular specialist",
+        "Diet_Advice": "High fiber diet, flavonoids (berries, citrus), low sodium to reduce fluid retention",
+        "Lifestyle": "Graduated compression stockings (Class 2), elevate legs 15-20 min daily, avoid prolonged standing"
     }
 ]
 

@@ -4,28 +4,21 @@
 {% block breadcrumb %}Admin / Patients / {{ patient.name }}{% endblock %}
 {% block nav %}
 <span class="nav-section-label">Main</span>
-<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<a href="/admin/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
 <span class="nav-section-label">Management</span>
-<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
-<a href="/admin/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
-<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
-<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
+<a href="/admin/doctors" class="nav-link"><span class="icon"><img src="/static/images/doctors_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Doctors</a>
+<a href="/admin/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Patients</a>
+<a href="/admin/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<a href="/admin/payments" class="nav-link"><span class="icon"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Payments</a>
 <span class="nav-section-label">Account</span>
-<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png"
-            style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+<a href="/admin/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
 {% endblock %}
 {% block content %}
 <!-- Patient Info Header -->
 <div class="card" style="margin-bottom:24px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
         <div style="display:flex;align-items:center;gap:20px">
-            <div
-                style="width:72px;height:72px;background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#E8611A">
+            <div style="width:72px;height:72px;background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;color:#E8611A">
                 {{ (patient.name or '?')[0].upper() }}
             </div>
             <div>
@@ -44,17 +37,13 @@
             </div>
         </div>
         <div class="btn-group">
-            <a href="/admin/patients/edit/{{ patient.id }}" class="btn btn-primary"><img
-                    src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Edit
-                Patient</a>
-            <a href="/admin/payments/add" class="btn btn-green"><img src="/static/images/card_icon.png"
-                    style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Add Payment</a>
+            <a href="/admin/patients/edit/{{ patient.id }}" class="btn btn-primary"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Edit Patient</a>
+            <a href="/admin/payments/add" class="btn btn-green"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Add Payment</a>
         </div>
     </div>
     {% if patient.address %}
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid #F0E8D8;color:#7A6558;font-size:14px">
-        <img src="/static/images/warning_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> {{
-        patient.address }}
+        <img src="/static/images/warning_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> {{ patient.address }}
     </div>
     {% endif %}
 </div>
@@ -68,8 +57,7 @@
         {% if diseases %}
         <div style="display:flex;flex-wrap:wrap;gap:12px;padding:20px">
             {% for disease in diseases %}
-            <div
-                style="background:#E3F2FD;padding:12px 16px;border-radius:8px;border-left:3px solid #1976D2;display:flex;align-items:center;gap:10px">
+            <div style="background:#E3F2FD;padding:12px 16px;border-radius:8px;border-left:3px solid #1976D2;display:flex;align-items:center;gap:10px">
                 <span style="font-size:18px">🩺</span>
                 <span style="font-weight:600;color:#1565C0">{{ disease }}</span>
             </div>
@@ -86,23 +74,15 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
                 <h3 class="card-title">📈 Treatment Progress Chart</h3>
                 {% if patient.address %}
-                <div
-                    style="background:#FFF8F0; padding:10px 14px; border-radius:6px; border-left:3px solid #E8611A; text-align:right">
-                    <div
-                        style="font-size:11px; color:#7A6558; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                        Address</div>
-                    <div style="font-size:12px; color:#1A1208; font-weight:500; margin-top:3px;">{{ patient.address }}
-                    </div>
+                <div style="background:#FFF8F0; padding:10px 14px; border-radius:6px; border-left:3px solid #E8611A; text-align:right">
+                    <div style="font-size:11px; color:#7A6558; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Address</div>
+                    <div style="font-size:12px; color:#1A1208; font-weight:500; margin-top:3px;">{{ patient.address }}</div>
                 </div>
                 {% endif %}
             </div>
         </div>
         {% if prescriptions %}
         <div style="padding:20px; background:#FAFAFA; border-radius:8px; position:relative; min-height:350px;">
-            <!-- Data for Chart -->
-            <div id="patientChartData" data-address="{{ (patient.address or 'Not available')|tojson|safe }}"
-                data-diseases="{{ prescriptions|map(attribute='predicted_disease')|list|tojson|safe }}"
-                style="display:none"></div>
             <canvas id="treatmentChart" style="max-height:350px;"></canvas>
         </div>
         {% else %}
@@ -113,18 +93,14 @@
     <!-- Prescriptions -->
     <div class="card" style="grid-column:1/-1">
         <div class="card-header">
-            <h3 class="card-title"><img src="/static/images/dashboard_icon.png"
-                    style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Treatment History ({{ prescriptions|length
-                if prescriptions else 0 }} records)</h3>
+            <h3 class="card-title"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Treatment History ({{ prescriptions|length if prescriptions else 0 }} records)</h3>
         </div>
         {% if prescriptions %}
         {% for pr in prescriptions %}
         <div style="border:1px solid #F0E8D8;border-radius:12px;padding:20px;margin-bottom:16px;background:#FBF7F0">
-            <div
-                style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
                 <div>
-                    <span style="font-size:18px;font-weight:600;font-family:'Cormorant Garamond',serif;color:#1A1208">{{
-                        pr.predicted_disease }}</span>
+                    <span style="font-size:18px;font-weight:600;font-family:'Cormorant Garamond',serif;color:#1A1208">{{ pr.predicted_disease }}</span>
                     <span class="badge badge-blue" style="margin-left:10px">{{ pr.doctor_name }}</span>
                 </div>
                 <span style="font-size:12px;color:#7A6558">{{ pr.created_at }}</span>
@@ -151,34 +127,23 @@
     <!-- Payments -->
     <div class="card" style="grid-column:1/-1">
         <div class="card-header">
-            <h3 class="card-title"><img src="/static/images/card_icon.png"
-                    style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Payment History</h3>
+            <h3 class="card-title"><img src="/static/images/card_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Payment History</h3>
         </div>
         <div class="table-wrap">
             <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Method</th>
-                        <th>Transaction ID</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Transaction ID</th><th>Status</th></tr></thead>
                 <tbody>
-                    {% for pay in payments %}
-                    <tr>
-                        <td>{{ pay.created_at }}</td>
-                        <td><strong>₹{{ pay.amount }}</strong></td>
-                        <td><span class="badge badge-blue">{{ pay.payment_method }}</span></td>
-                        <td style="font-family:monospace;font-size:12px">{{ pay.transaction_id }}</td>
-                        <td><span class="badge badge-green">{{ pay.status }}</span></td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" style="text-align:center;padding:32px;color:#7A6558">No payments recorded.</td>
-                    </tr>
-                    {% endfor %}
+                {% for pay in payments %}
+                <tr>
+                    <td>{{ pay.created_at }}</td>
+                    <td><strong>₹{{ pay.amount }}</strong></td>
+                    <td><span class="badge badge-blue">{{ pay.payment_method }}</span></td>
+                    <td style="font-family:monospace;font-size:12px">{{ pay.transaction_id }}</td>
+                    <td><span class="badge badge-green">{{ pay.status }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center;padding:32px;color:#7A6558">No payments recorded.</td></tr>
+                {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -191,29 +156,27 @@
 <script>
     // Create Treatment Progress Chart
     const treatmentChartCanvas = document.getElementById('treatmentChart');
-
+    
     if (treatmentChartCanvas) {
-        const dataEl = document.getElementById('patientChartData');
-        const patientAddress = JSON.parse(dataEl.dataset.address);
-        const treatmentDiseases = JSON.parse(dataEl.dataset.diseases);
-
         // Count prescriptions by disease
         const diseaseCount = {};
-
-        treatmentDiseases.forEach(disease => {
-            const diseaseName = disease || 'Unknown';
-            diseaseCount[diseaseName] = (diseaseCount[diseaseName] || 0) + 1;
+        [
+            {% for pr in prescriptions %}
+            "{{ (pr.predicted_disease or 'Unknown')|replace('\"', '\\\"')|replace('\n', ' ') }}",
+            {% endfor %}
+        ].forEach(disease => {
+            diseaseCount[disease] = (diseaseCount[disease] || 0) + 1;
         });
-
+        
         const labels = Object.keys(diseaseCount);
         const data = Object.values(diseaseCount);
-
+        
         // Generate colors
         const colors = [
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
             '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#A8E6CF'
         ];
-
+        
         const backgroundColors = data.map((_, i) => colors[i % colors.length]);
         const borderColors = backgroundColors.map(color => {
             // Properly darken the hex color
@@ -225,7 +188,7 @@
             b = Math.max(0, b - 30);
             return '#' + r.toString(16).padStart(2, '0') + g.toString(16).padStart(2, '0') + b.toString(16).padStart(2, '0');
         });
-
+        
         new Chart(treatmentChartCanvas, {
             type: 'bar',
             data: {
@@ -247,7 +210,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: "Patient Address: " + patientAddress,
+                        text: `Patient Address: {{ patient.address|replace('\n', ' ')|replace('\r', '')|replace('`', '\\`') if patient.address else "Not available" }}`,
                         align: 'end',
                         padding: {
                             top: 10,
@@ -277,9 +240,8 @@
                         borderWidth: 1,
                         borderRadius: 6,
                         callbacks: {
-                            label: function (context) {
-                                const val = context.chart.options.indexAxis === 'y' ? context.parsed.x : context.parsed.y;
-                                return 'Treatments: ' + val;
+                            label: function(context) {
+                                return 'Treatments: ' + context.parsed.y;
                             }
                         }
                     }
@@ -311,13 +273,13 @@
             },
             plugins: [{
                 id: 'chart_bar_labels',
-                afterDatasetsDraw: function (chart) {
+                afterDatasetsDraw: function(chart) {
                     // Add value labels on top of bars
                     const ctx = chart.ctx;
                     ctx.font = '12px Arial';
                     ctx.fillStyle = '#1A1208';
                     ctx.textAlign = 'center';
-
+                    
                     chart.data.datasets.forEach((dataset, datasetIndex) => {
                         const meta = chart.getDatasetMeta(datasetIndex);
                         meta.data.forEach((bar, index) => {

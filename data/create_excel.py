@@ -401,6 +401,14 @@ data = [
         "Duration": "Supportive",
         "Diet_Advice": "Strict fluid replacement, coconut water, rice gruel",
         "Lifestyle": "Sanitized water, strict hygiene"
+    },
+    {
+        "Disease": "Varicose-vein-type condition",
+        "Medicine": "Sahacharadi Thailam, Kaishore Guggulu, Sarivadyasava",
+        "Dosage": "Sahacharadi Thailam: gentle upward external massage; Kaishore Guggulu: 2 tabs twice daily; Sarivadyasava: 20ml post meals",
+        "Duration": "2-3 months",
+        "Diet_Advice": "High-fiber diet, citrus fruits, berries, avoid excessive salty and constipating foods",
+        "Lifestyle": "Leg elevation when resting, avoid prolonged standing, gentle walking"
     }
 ]
 

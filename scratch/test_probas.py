@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TRAIN_CSV = os.path.join(BASE_DIR, 'ml_model', 'training_data.csv')
+TRAIN_CSV = os.path.join(BASE_DIR, '..', 'ml_model', 'training_data.csv')
 
 df_train = pd.read_csv(TRAIN_CSV)
 df_train.columns = [c.strip().strip(',') for c in df_train.columns]

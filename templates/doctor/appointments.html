@@ -7,11 +7,42 @@
 <a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
 <span class="nav-section-label">Clinical</span>
 <a href="/doctor/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/predict" class="nav-link"><span class="icon">🤖</span> AI Disease Prediction</a>
 <a href="/doctor/appointments" class="nav-link active"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
 <span class="nav-section-label">Account</span>
 <a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
 {% endblock %}
 {% block content %}
+{% if consultation_requests %}
+<div class="card" style="margin-bottom:24px;border:1px solid #C7D2FE;">
+    <div class="card-header">
+        <h3 class="card-title">Video Consultation Requests ({{ consultation_requests|length }})</h3>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Patient</th><th>Condition</th><th>Requested</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+            {% for request in consultation_requests %}
+            <tr>
+                <td><strong>{{ request.patient_name }}</strong><div style="font-size:12px;color:#7A6558">{{ request.patient_phone or 'No phone' }}</div></td>
+                <td>{{ request.disease }}</td>
+                <td>{{ request.created_at[:16] }}</td>
+                <td>{% if request.status == 'Approved' %}<span class="badge badge-green">Approved</span>{% elif request.status == 'Declined' %}<span class="badge badge-red">Declined</span>{% else %}<span class="badge badge-orange">Pending</span>{% endif %}</td>
+                <td>
+                    {% if request.status == 'Pending' %}
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <form method="POST" action="{{ url_for('doctor_consultation_request', request_id=request.id, action='approve') }}"><button type="submit" class="btn btn-green btn-sm">Approve Video</button></form>
+                        <form method="POST" action="{{ url_for('doctor_consultation_request', request_id=request.id, action='decline') }}"><button type="submit" class="btn btn-outline btn-sm" style="color:#C62828;border-color:#FFCDD2;">Decline</button></form>
+                    </div>
+                    {% else %}<span style="font-size:12px;color:#7A6558;">No action needed</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">My Appointments ({{ appointments|length }})</h3>

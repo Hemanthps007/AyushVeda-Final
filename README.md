@@ -1,27 +1,39 @@
 🌿 AyushVeda — ML-Based Ayurvedic Health Management System
 A full-stack web application built with Python Flask and SQLite, integrating a Random Forest ML model for Ayurvedic disease prediction.
 
-Live Link : http://ayush-veda-final.vercel.app/
-
 🚀 Quick Start
 1. Install Dependencies
-bash: pip install -r requirements.txt
+bashpip install -r requirements.txt
 2. Run the Application
-bash: python app.py
+bashpython app.py
 3. Open in Browser
 http://localhost:5000
 
 🔑 Demo Credentials
+Role:Admin                   doctor                   Patient
+Email:admin@ayushveda.com    doctor@ayushveda.com     patient@ayushveda.com
+Password:admin123            doctor123                patient123
 
 
-Role: Admin                             ,                   doctor                                ,              Patient
-
-Email: admin@ayushveda.com              ,              doctor@ayushveda.com                       ,         patient@ayushveda.com
-
-Password: admin123                       ,                 doctor123                              ,              patient123
-
-
-
+📁 Project Structure
+ayushveda/
+├── app.py                      # Main Flask application
+├── requirements.txt
+├── ayushveda.db                # SQLite database (auto-created)
+├── ml_model/
+│   ├── train_model.py          # ML model training script
+│   ├── disease_model.pkl       # Trained Random Forest model
+│   └── symptoms_list.pkl       # Symptoms feature list
+├── data/
+│   ├── create_excel.py
+│   └── ayurvedic_medicines.xlsx  # Medicines database
+└── templates/
+    ├── base.html               # Shared sidebar layout
+    ├── login_base.html         # Shared login layout
+    ├── index.html              # Landing page
+    ├── admin/                  # Admin module templates
+    ├── doctor/                 # Doctor module templates
+    └── patient/                # Patient module templates
 
 ✨ Features
 🛡️ Admin Module

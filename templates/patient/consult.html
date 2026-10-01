@@ -1,13 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Consult a Doctor{% endblock %}
-{% block page_title %}Consult a Doctor{% endblock %}
-{% block breadcrumb %}Patient / Consult a Doctor{% endblock %}
+{% block title %}Consult Specialized Doctors{% endblock %}
+{% block page_title %}Consult Specialized Doctors{% endblock %}
+{% block breadcrumb %}Patient / Consult Specialized Doctors{% endblock %}
 {% block nav %}
 <span class="nav-section-label">My Health</span>
 <a href="/patient/dashboard" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
+<a href="/patient/predict" class="nav-link"><span class="icon">🤖</span> AI Prediction</a>
+<a href="/patient/chatbot" class="nav-link"><span class="icon">💬</span> AyushBot</a>
 <a href="/patient/history" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Treatment History</a>
 <a href="/patient/map" class="nav-link"><span class="icon">📍</span> Map</a>
-<a href="/patient/consult" class="nav-link active"><span class="icon">📞</span> Consult a Doctor</a>
+<a href="/patient/consult" class="nav-link active"><span class="icon">📞</span> Consult Specialized Doctors</a>
 <span class="nav-section-label">Account</span>
 <a href="/patient/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
 {% endblock %}
@@ -127,7 +129,7 @@
 <div style="background:linear-gradient(135deg,#0369A1,#0C4A6E); border-radius:16px; padding:28px 32px; margin-bottom:28px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
     <div style="font-size:52px; line-height:1;">📞</div>
     <div>
-        <h2 style="font-size:26px; color:#fff; font-family:'Cormorant Garamond',serif; margin:0 0 6px 0;">Consult a Doctor</h2>
+        <h2 style="font-size:26px; color:#fff; font-family:'Cormorant Garamond',serif; margin:0 0 6px 0;">Consult Specialized Doctors</h2>
         <p style="color:rgba(255,255,255,0.75); font-size:14px; margin:0;">Connect directly with our registered Ayurvedic physicians via phone call or video conference.</p>
     </div>
     <div style="margin-left:auto; background:rgba(255,255,255,0.12); border-radius:10px; padding:12px 18px; text-align:center;">
@@ -150,6 +152,45 @@
         <a href="tel:{{ patient.doctor_phone }}" class="call-btn" style="min-width:110px;">📞 Call Now</a>
     </div>
     {% endif %}
+</div>
+{% endif %}
+
+<!-- Disease-specific demo specialist directory -->
+<div class="card" style="margin-bottom:24px; border:1px solid #BAE6FD;">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">Find a Specialist by Condition</h3>
+            <p style="font-size:13px;color:#64748B;margin-top:4px;">Demo specialist profiles help you identify the right department for your condition.</p>
+        </div>
+        <select id="disease_filter" aria-label="Choose a condition" onchange="filterSpecialists(this.value)" style="padding:10px;border:1px solid #BAE6FD;border-radius:8px;min-width:220px;">
+            <option value="">All conditions</option>
+            {% for disease in diseases %}
+            <option value="{{ disease|e }}">{{ disease }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div id="specialist_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;">
+        {% for disease, name, specialty in demo_specialists %}
+        <div class="specialist-card" data-disease="{{ disease|e }}" style="background:#F8FAFC;border:1px solid #E0F2FE;border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:#0284C7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">{{ disease }}</div>
+            <div style="font-size:17px;font-weight:700;color:#0C4A6E;margin-top:8px;">{{ name }}</div>
+            <div style="font-size:13px;color:#475569;margin-top:3px;">{{ specialty }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if video_requests %}
+<div class="card" style="margin-bottom:24px;border:1px solid #C7D2FE;">
+    <div class="card-header"><h3 class="card-title">My Video Consultation Requests</h3></div>
+    {% for request in video_requests %}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid #E2E8F0;">
+        <div><strong>{{ request.doctor_name }}</strong><div style="font-size:12px;color:#64748B;">{{ request.disease }} · {{ request.created_at[:16] }}</div></div>
+        {% if request.status == 'Approved' %}<span class="badge badge-green">Approved</span>
+        {% elif request.status == 'Declined' %}<span class="badge badge-red">Declined</span>
+        {% else %}<span class="badge badge-orange">Pending doctor approval</span>{% endif %}
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 
@@ -189,12 +230,21 @@
         {% if doc.phone %}
         <div style="display:flex; gap:12px;">
             <a href="tel:{{ doc.phone }}" id="call_{{ doc.id }}" class="call-btn">📞 Call</a>
-            <button class="video-btn" id="video_{{ doc.id }}"
-                    data-name="{{ doc.name|e }}"
-                    data-phone="{{ doc.phone|e }}"
-                    onclick="openVideoModal(this.dataset.name, this.dataset.phone)">
-                🎥 Video Call
-            </button>
+            {% set doctor_request = namespace(status='') %}
+            {% for video_request in video_requests %}
+                {% if video_request.doctor_id == doc.id %}{% set doctor_request.status = video_request.status %}{% endif %}
+            {% endfor %}
+            {% if doctor_request.status == 'Approved' %}
+            <span class="video-btn" style="background:#16A34A;cursor:default;">✅ Video Approved</span>
+            {% elif doctor_request.status == 'Pending' %}
+            <span class="video-btn" style="background:#94A3B8;cursor:default;">⏳ Video Pending</span>
+            {% else %}
+            <form action="{{ url_for('patient_consult') }}" method="POST" style="flex:1;display:flex;">
+                <input type="hidden" name="doctor_id" value="{{ doc.id }}">
+                <input type="hidden" name="disease" class="selected-disease" value="">
+                <button type="submit" class="video-btn" style="width:100%;">🎥 Request Video</button>
+            </form>
+            {% endif %}
         </div>
         {% else %}
         <div style="text-align:center; font-size:13px; color:#94A3B8; padding:12px; background:#F8FAFC; border-radius:10px; border:1px dashed #CBD5E1;">
@@ -216,7 +266,7 @@
 <div style="background:#FFF8F0; border:1px solid #FED7AA; border-radius:12px; padding:16px 20px; margin-top:24px; display:flex; align-items:flex-start; gap:12px;">
     <span style="font-size:20px; flex-shrink:0;">💡</span>
     <div style="font-size:13px; color:#92400E; line-height:1.6;">
-        <strong>How to start a Video Call:</strong> Click "Video Call" to get the doctor's details, then call them to request a Google Meet or Zoom link. Video consultations are scheduled by mutual agreement.
+        <strong>How consultations work:</strong> Audio calls connect immediately by phone. Video calls require a request and doctor approval; after approval, contact the doctor to arrange the secure meeting link and time.
     </div>
 </div>
 
@@ -263,6 +313,15 @@ function closeVideoModal() {
     modal.classList.remove('open');
     setTimeout(() => { modal.style.display = 'none'; }, 250);
 }
+
+function filterSpecialists(disease) {
+    document.querySelectorAll('.specialist-card').forEach(card => {
+        card.style.display = !disease || card.dataset.disease === disease ? 'block' : 'none';
+    });
+    document.querySelectorAll('.selected-disease').forEach(input => { input.value = disease; });
+}
+
+document.getElementById('disease_filter').dispatchEvent(new Event('change'));
 
 // Close modal when clicking on backdrop
 document.getElementById('videoModal').addEventListener('click', function(e) {

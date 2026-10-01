@@ -5,9 +5,11 @@
 {% block nav %}
 <span class="nav-section-label">My Health</span>
 <a href="/patient/dashboard" class="nav-link active"><span class="icon">🏠</span> Dashboard</a>
+<a href="/patient/predict" class="nav-link"><span class="icon">🤖</span> AI Prediction</a>
+<a href="/patient/chatbot" class="nav-link"><span class="icon">💬</span> AyushBot</a>
 <a href="/patient/history" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Treatment History</a>
 <a href="/patient/map" class="nav-link"><span class="icon">📍</span> Map</a>
-<a href="/patient/consult" class="nav-link"><span class="icon">📞</span> Consult a Doctor</a>
+<a href="/patient/consult" class="nav-link"><span class="icon">📞</span> Consult Specialized Doctors</a>
 <span class="nav-section-label">Account</span>
 <a href="/patient/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
 {% endblock %}
@@ -54,6 +56,26 @@
             </div>
             <button id="triage_btn" class="btn btn-primary" onclick="submitTriage()" style="background:#E8611A;border-color:#E8611A;box-shadow:none">Send to AI Triage</button>
         </div>
+    </div>
+</div>
+
+<!-- AyushBot AI Companion Card -->
+<div class="card" style="margin-bottom:24px;border:1.5px solid #2D5016;background:linear-gradient(135deg,#F1F8E9 0%,#E8F5E9 100%);display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:22px 26px;">
+    <div style="display:flex;align-items:center;gap:18px;">
+        <div style="width:54px;height:54px;background:#2D5016;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;box-shadow:0 4px 14px rgba(45,80,22,0.25);">💬</div>
+        <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <h3 style="font-family:'Cormorant Garamond',serif;font-size:22px;color:#2D5016;margin:0;font-weight:700;">AyushBot — Ayurvedic AI Health Companion</h3>
+                <span class="badge badge-green" style="font-size:11px;">Powered by Gemini</span>
+            </div>
+            <p style="color:#5D4037;font-size:13.5px;margin:4px 0 0;">Ask questions about remedies, dosha balance, herbal medicines, and your health history with personalized AI guidance.</p>
+        </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+        <a href="/patient/chatbot" class="btn btn-primary" style="background:#2D5016;border-color:#2D5016;padding:10px 20px;font-size:14px;display:flex;align-items:center;gap:8px;text-decoration:none;">
+            <span>🌿 Chat with AyushBot</span>
+            <span>→</span>
+        </a>
     </div>
 </div>
 
@@ -169,11 +191,11 @@
     </div>
 </div>
 
-<!-- Quick Access: Consult a Doctor -->
+<!-- Quick Access: Consult Specialized Doctors -->
 <div style="background:linear-gradient(135deg,#0369A1,#0C4A6E); border-radius:14px; padding:20px 24px; margin-bottom:24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
     <div style="font-size:36px;">📞</div>
     <div style="flex:1; min-width:200px;">
-        <div style="font-size:16px; font-weight:700; color:#fff; margin-bottom:4px;">Consult a Doctor</div>
+        <div style="font-size:16px; font-weight:700; color:#fff; margin-bottom:4px;">Consult Specialized Doctors</div>
         <div style="font-size:13px; color:rgba(255,255,255,0.7);">Call or video conference with our physicians directly using their phone numbers.</div>
     </div>
     <a href="/patient/consult"
@@ -526,8 +548,20 @@
                     x: {
                         beginAtZero: true,
                         ticks: {
+                            stepSize: 1,
+                            precision: 0,
                             callback: function(value) {
-                                return value;
+                                if (Number.isInteger(value)) {
+                                    return value;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Number of Patients',
+                            color: '#7A6558',
+                            font: {
+                                size: 12
                             }
                         }
                     }
@@ -683,7 +717,6 @@ function startPatientDictation() {
 
         recognition.onresult = function(e) {
             const currentText = document.getElementById('triage_text').value;
-            // Append the dictated text gracefully if they type AND dictate
             const newText = e.results[0][0].transcript;
             document.getElementById('triage_text').value = currentText ? currentText + " " + newText : newText;
             recognition.stop();
@@ -697,7 +730,7 @@ function startPatientDictation() {
             alert("Voice recognition failed: " + e.error);
         };
     } else {
-        alert("Your browser does not support Voice Recognition. Please use Google Chrome.");
+        alert("Your browser does not support Voice Recognition. Please use Google Chrome or Microsoft Edge.");
     }
 }
 </script>

@@ -1,0 +1,680 @@
+{% extends 'base.html' %}
+{% block title %}AI Disease Prediction & History{% endblock %}
+{% block page_title %}AI Health Checker{% endblock %}
+{% block breadcrumb %}Patient / Disease Prediction{% endblock %}
+
+{% block nav %}
+<span class="nav-section-label">My Health</span>
+<a href="/patient/dashboard" class="nav-link"><span class="icon">🏠</span> Dashboard</a>
+<a href="/patient/predict" class="nav-link active"><span class="icon">🤖</span> AI Prediction</a>
+<a href="/patient/chatbot" class="nav-link"><span class="icon">💬</span> AyushBot</a>
+<a href="/patient/history" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Treatment History</a>
+<a href="/patient/map" class="nav-link"><span class="icon">📍</span> Map</a>
+<a href="/patient/consult" class="nav-link"><span class="icon">📞</span> Consult Specialized Doctors</a>
+<span class="nav-section-label">Account</span>
+<a href="/patient/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.symptom-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 9px;
+}
+.symptom-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border: 1.5px solid #F0E8D8;
+    border-radius: 8px; cursor: pointer; transition: all 0.18s;
+    background: #FBF7F0; font-size: 13px; user-select: none;
+}
+.symptom-chip input { display: none; }
+.symptom-chip .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid #D0C8C0; flex-shrink: 0; transition: all 0.18s;
+}
+.symptom-chip:hover { border-color: #4A7C22; background: #F1F8E9; }
+.symptom-chip.selected { border-color: #4A7C22; background: #F1F8E9; }
+.symptom-chip.selected .dot { background: #4A7C22; border-color: #4A7C22; }
+.symptom-label { text-transform: capitalize; }
+
+.ml-result {
+    border: 2px solid #4A7C22; border-radius: 14px; padding: 24px;
+    background: linear-gradient(135deg, #F1F8E9, #DCEDC8);
+    display: none;
+}
+.confidence-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.confidence-fill { height: 100%; background: linear-gradient(90deg, #4A7C22, #7AB648); border-radius: 4px; transition: width 0.6s ease; }
+.top3-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.top3-item:last-child { border: none; }
+.rx-section { background: #fff; border: 1px solid #F0E8D8; border-radius: 12px; padding: 20px; margin-top: 16px; }
+.tab-btn {
+    padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans'; font-size: 14px; font-weight: 500; transition: all 0.2s;
+    background: #F0E8D8; color: #4A3728;
+}
+.tab-btn.active { background: #2D5016; color: #fff; }
+.page-tab-btn {
+    padding: 10px 24px; border: none; border-radius: 10px; cursor: pointer;
+    font-family: 'DM Sans'; font-size: 15px; font-weight: 600; transition: all 0.2s;
+    background: #F0E8D8; color: #4A3728;
+}
+.page-tab-btn.active { background: #2D5016; color: #fff; }
+
+.disclaimer-banner {
+    background: linear-gradient(135deg, #FFF3E0, #FFE0B2);
+    border: 1.5px solid #FFB74D; border-radius: 12px; padding: 16px 20px;
+    display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px;
+}
+.prescription-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+}
+.disclaimer-content { flex: 1; min-width: 0; }
+.disclaimer-language { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.disclaimer-language label { font-size: 12px; font-weight: 600; color: #5D4037; }
+.disclaimer-language select { padding: 6px 8px; border: 1px solid #D0C8C0; border-radius: 6px; background: #fff; font-family: 'DM Sans'; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page Tabs -->
+<div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+    <button class="page-tab-btn active" data-tab="predict" onclick="showPageTab('predict', this)">🤖 AI Disease Prediction</button>
+    <button class="page-tab-btn" data-tab="history" onclick="showPageTab('history', this)">📋 My Treatment History <span style="background:#E8611A;color:#fff;font-size:11px;padding:2px 7px;border-radius:10px;margin-left:4px;">{{ prescriptions|length }}</span></button>
+</div>
+
+<div class="card" style="margin-bottom:20px; border:2px solid #E8611A; background:#FFF8F2; display:block !important;">
+    <div class="card-header" style="margin-bottom:10px;">
+        <div>
+            <h3 class="card-title" style="color:#E8611A;">📋 Treatment History</h3>
+            <p style="font-size:13px;color:#7A6558;margin-top:4px;">Your latest treatment records stay visible here while you use AI Prediction.</p>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="showPageTab('history', document.querySelector('.page-tab-btn[data-tab=\'history\']'))">View Full History</button>
+    </div>
+    {% if prescriptions %}
+    <div style="display:grid;gap:10px;">
+        {% for pr in prescriptions[:3] %}
+        <div style="background:#fff;border:1px solid #E8E0D6;border-radius:10px;padding:12px 14px;">
+            <div style="font-weight:700;color:#2D5016;">{{ pr.predicted_disease }}</div>
+            <div style="font-size:13px;color:#7A6558;margin-top:4px;">{{ pr.created_at[:10] }} • {{ pr.medicines[:90] }}{% if pr.medicines|length > 90 %}...{% endif %}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="color:#7A6558;padding:8px 0;">No treatment history yet. Your past records will appear here after your first consultation.</div>
+    {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PREDICTION TAB                                             -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="page_predict">
+
+    <!-- Disclaimer Banner -->
+    <div class="disclaimer-banner">
+        <span style="font-size:24px;flex-shrink:0;">⚕️</span>
+        <div class="disclaimer-content">
+            <div style="font-size:14px;font-weight:700;color:#E65100;margin-bottom:4px;">AI-Only Mode — For Informational Use</div>
+            <div class="disclaimer-language">
+                <label for="disclaimer_lang">Read in</label>
+                <select id="disclaimer_lang" aria-label="Disclaimer language" onchange="updateDisclaimerLanguage()">
+                    <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="ta">தமிழ் (Tamil)</option>
+                    <option value="te">తెలుగు (Telugu)</option>
+                    <option value="bn">বাংলা (Bengali)</option>
+                    <option value="mr">मराठी (Marathi)</option>
+                    <option value="ml">മലയാളം (Malayalam)</option>
+                    <option value="ur">اردو (Urdu)</option>
+                    <option value="gu">ગુજરાતી (Gujarati)</option>
+                    <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                    <option value="en" selected>English</option>
+                </select>
+            </div>
+            <div id="disclaimer_message" style="font-size:13px;color:#5D4037;line-height:1.6;">This tool uses machine learning to suggest possible conditions based on your symptoms. It is <strong>not a substitute for a professional medical diagnosis</strong>. If you have serious symptoms, please <a href="/patient/consult" style="color:#E8611A;">consult a specialized doctor</a>. Results include both Ayurvedic and modern medicine options.</div>
+        </div>
+    </div>
+
+    <!-- Symptom Selection Card -->
+    <div class="card" style="margin-bottom:20px;">
+        <div class="card-header">
+            <div>
+                <h3 class="card-title">Select Your Symptoms</h3>
+                <p style="font-size:13px;color:#7A6558;margin-top:4px;">Type your symptoms or choose from the list below. Select everything you are experiencing.</p>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="clearSymptoms()" class="btn btn-outline btn-sm">Clear All</button>
+                <button onclick="predictDisease()" class="btn btn-primary" id="predict_btn">🤖 Predict Disease</button>
+            </div>
+        </div>
+        <div style="margin-bottom:20px;display:flex;gap:10px;padding:0 24px;flex-wrap:wrap;">
+            <button type="button" onclick="startDictation()" class="btn btn-outline" id="voice_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0;font-size:18px;padding:0 14px;" title="Speak symptoms">🎙️</button>
+            <select id="predict_voice_lang" style="padding:10px;border:1px solid #D0C8C0;border-radius:8px;min-width:160px;">
+                <option value="kn">ಕನ್ನಡ</option>
+                <option value="hi">हिन्दी</option>
+                <option value="ta">தமிழ்</option>
+                <option value="te">తెలుగు</option>
+                <option value="bn">বাংলা</option>
+                <option value="mr">मराठी</option>
+                <option value="ml">മലയാളം</option>
+                <option value="ur">اردو</option>
+                <option value="gu">ગુજરાતી</option>
+                <option value="pa">ਪੰਜਾਬੀ</option>
+                <option value="en">English</option>
+            </select>
+            <input type="text" id="ai_symptom_input" placeholder="✨ Describe your symptoms — e.g. fever, headache, fatigue..." style="flex:1;min-width:280px;padding:12px;border:1px solid #D0C8C0;border-radius:8px;font-family:'DM Sans';font-size:14px;">
+            <button type="button" onclick="extractSymptoms()" class="btn btn-outline" id="ai_extract_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0;">🤖 AI Match</button>
+        </div>
+        <div class="symptom-grid" style="padding:0 24px;">
+            {% for symptom in symptoms_list %}
+            <div class="symptom-chip" onclick="toggleSymptom(this)" data-symptom="{{ symptom }}">
+                <input type="checkbox" value="{{ symptom }}">
+                <div class="dot"></div>
+                <span class="symptom-label">{{ symptom.replace('_', ' ') }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="margin-top:16px;padding:0 24px 8px;font-size:13px;color:#7A6558;">
+            Selected: <strong id="selected_count">0</strong> symptoms
+        </div>
+    </div>
+
+    <!-- ML Result (hidden until predicted) -->
+    <div class="ml-result" id="ml_result">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+            <div>
+                <div style="font-size:13px;color:#4A7C22;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">🤖 AI Prediction Result</div>
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <div id="predicted_disease" style="font-family:'Cormorant Garamond',serif;font-size:36px;color:#1A1208;font-weight:600;"></div>
+                    <button type="button" id="ask_ai_disease_btn" onclick="openAskAiModal()" style="display:none;background:linear-gradient(135deg,#2D5016,#4A7C22);color:#fff;border:none;border-radius:24px;padding:8px 18px;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(45,80,22,0.25);transition:all 0.2s;align-items:center;gap:8px;font-family:'DM Sans',sans-serif;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'" title="Ask AyushBot AI about this condition">
+                        <span>💬 Ask AI</span>
+                    </button>
+                </div>
+                <div style="margin-top:8px;">
+                    <span style="font-size:13px;color:#4A3728;">Confidence: </span>
+                    <strong id="confidence_pct" style="color:#2D5016;"></strong>
+                </div>
+                <div class="confidence-bar" style="width:300px;margin-top:8px;">
+                    <div class="confidence-fill" id="conf_bar" style="width:0%"></div>
+                </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:16px;min-width:220px;">
+                <div style="font-size:12px;font-weight:600;color:#4A3728;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Top 3 Predictions</div>
+                <div id="top3_list"></div>
+            </div>
+        </div>
+
+        <!-- Medicine Type Tabs -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;" id="med_toggles">
+            <button class="tab-btn active" id="btn_ayurvedic" onclick="switchMedicine('ayurvedic')" type="button"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Ayurvedic Treatment</button>
+            <button class="tab-btn" id="btn_allopathic" onclick="switchMedicine('allopathic')" type="button">🏥 Modern Medicine</button>
+        </div>
+
+        <!-- Treatment Details (read-only) -->
+        <div class="rx-section" id="treatment_section">
+            <h4 id="rx_title" style="font-size:16px;margin-bottom:14px;color:#2D5016;"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Suggested Ayurvedic Treatment</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;" id="treatment_grid">
+                <!-- filled by JS -->
+            </div>
+            <div style="margin-top:16px;padding:14px;background:#FFF3E0;border-radius:10px;border-left:4px solid #E8611A;">
+                <div style="font-size:12px;font-weight:700;color:#E8611A;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">⚕️ Medical Disclaimer</div>
+                <div style="font-size:12px;color:#5D4037;line-height:1.5;">These are AI-suggested treatments for informational reference only. Dosage and duration should always be confirmed with a licensed doctor before you start any medication. <a href="/patient/consult" style="color:#E8611A;font-weight:600;">Book a consultation →</a></div>
+            </div>
+        </div>
+
+        <div style="margin-top:16px;">
+            <button type="button" onclick="clearResult()" class="btn btn-outline">← Check Again</button>
+        </div>
+    </div>
+</div>
+
+<!-- Ask AI Language Selection Modal -->
+<div id="ask_ai_lang_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:#fff;border-radius:18px;max-width:440px;width:90%;padding:26px;box-shadow:0 20px 50px rgba(0,0,0,0.25);border:1.5px solid #E8E0D5;text-align:center;">
+        <div style="font-size:38px;margin-bottom:8px;">🤖</div>
+        <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#2D5016;margin:0 0 6px;font-weight:700;">Ask AyushBot AI</h3>
+        <p style="font-size:13.5px;color:#7A6558;margin:0 0 20px;line-height:1.5;">Choose language to explain <strong id="modal_disease_name" style="color:#1A1208;"></strong> with integrated <strong>Modern Medicine & Ayurveda</strong>:</p>
+        
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+            <button type="button" onclick="confirmAskAi('en')" class="btn" style="background:#F4FBF0;border:1.5px solid #81C784;color:#2D5016;padding:12px 18px;font-size:14.5px;font-weight:600;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#E8F5E9'" onmouseout="this.style.background='#F4FBF0'">
+                <span>🇬🇧 English</span>
+                <span style="font-size:12px;color:#4A7C22;font-weight:500;">Modern & Ayurvedic Overview →</span>
+            </button>
+            <button type="button" onclick="confirmAskAi('kn')" class="btn" style="background:#FFF9F0;border:1.5px solid #FFB74D;color:#E65100;padding:12px 18px;font-size:14.5px;font-weight:600;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#FFE0B2'" onmouseout="this.style.background='#FFF9F0'">
+                <span>🇮🇳 ಕನ್ನಡ (Kannada)</span>
+                <span style="font-size:12px;color:#E8611A;font-weight:500;">ಸರಳ ಕನ್ನಡದಲ್ಲಿ ಮಾಹಿತಿ →</span>
+            </button>
+            <button type="button" onclick="confirmAskAi('hi')" class="btn" style="background:#F0F7FF;border:1.5px solid #64B5F6;color:#1565C0;padding:12px 18px;font-size:14.5px;font-weight:600;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all 0.2s;font-family:'DM Sans',sans-serif;" onmouseover="this.style.background='#BBDEFB'" onmouseout="this.style.background='#F0F7FF'">
+                <span>🇮🇳 हिंदी (Hindi)</span>
+                <span style="font-size:12px;color:#1976D2;font-weight:500;">सरल हिंदी में समझें →</span>
+            </button>
+        </div>
+        
+        <button type="button" onclick="closeAskAiModal()" class="btn btn-outline" style="width:100%;padding:10px;font-size:13px;border-radius:10px;color:#7A6558;font-family:'DM Sans',sans-serif;">Cancel</button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HISTORY TAB                                                -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="page_history" style="display:none;">
+    {% if prescriptions %}
+    {% for pr in prescriptions %}
+    <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+            <div>
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:6px;">Diagnosis</div>
+                <h2 style="font-family:'Cormorant Garamond',serif;font-size:30px;color:#1A1208;">{{ pr.predicted_disease }}</h2>
+                <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
+                    <span class="badge badge-blue">Dr. {{ pr.doctor_name }}</span>
+                    <span class="badge" style="background:#F0E8D8;color:#4A3728;">{{ pr.specialization }}</span>
+                    <span class="badge" style="background:#F0E8D8;color:#7A6558;">{{ pr.created_at[:10] }}</span>
+                </div>
+            </div>
+            <form action="{{ url_for('patient_delete_history', pr_id=pr.id) }}" method="POST" onsubmit="return confirm('Delete this treatment record?');" style="margin:0;">
+                <button type="submit" class="btn btn-outline" style="color:#C62828;border-color:#FFCDD2;background:#FFF5F5;padding:6px 14px;font-size:13px;">🗑️ Delete</button>
+            </form>
+        </div>
+        <div class="prescription-grid">
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px;">🤒 Symptoms</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.symptoms }}</div>
+            </div>
+            <div style="background:#F1F8E9;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:8px;"><img src="/static/images/logo_icon.png" style="height:1.1em;width:1.1em;vertical-align:-0.15em;"> Medicines</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.medicines }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px;">💊 Dosage</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.dosage }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px;">⏱️ Duration</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.duration }}</div>
+            </div>
+            {% if pr.diet_advice %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px;">🥗 Diet Advice</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.diet_advice }}</div>
+            </div>
+            {% endif %}
+            {% if pr.suggestions %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px;">🧘 Doctor's Notes</div>
+                <div style="font-size:13px;color:#4A3728;">{{ pr.suggestions }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:80px;">
+        <div style="font-size:64px;margin-bottom:20px;">📋</div>
+        <h2 style="font-size:28px;margin-bottom:12px;">No treatment history yet</h2>
+        <p style="color:#7A6558;margin-bottom:20px;">Your treatment records from doctors will appear here. You can also use the <strong>AI Prediction</strong> tab to understand your symptoms better.</p>
+        <a href="#" onclick="showPageTab('predict', document.querySelector('.page-tab-btn'))" class="btn btn-primary">🤖 Try AI Prediction</a>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedSymptoms = new Set();
+let currentPrediction = null;
+
+const disclaimerMessages = {
+    en: 'This tool uses machine learning to suggest possible conditions based on your symptoms. It is <strong>not a substitute for a professional medical diagnosis</strong>. If you have serious symptoms, please <a href="/patient/consult" style="color:#E8611A;">consult a specialized doctor</a>. Results include both Ayurvedic and modern medicine options.',
+    kn: 'ಈ ಉಪಕರಣವು ನಿಮ್ಮ ಲಕ್ಷಣಗಳ ಆಧಾರದ ಮೇಲೆ ಸಂಭವನೀಯ ಆರೋಗ್ಯ ಸಮಸ್ಯೆಗಳನ್ನು ಸೂಚಿಸಲು ಯಂತ್ರ ಕಲಿಕೆಯನ್ನು ಬಳಸುತ್ತದೆ. ಇದು <strong>ವೃತ್ತಿಪರ ವೈದ್ಯಕೀಯ ನಿರ್ಣಯಕ್ಕೆ ಪರ್ಯಾಯವಲ್ಲ</strong>. ಗಂಭೀರ ಲಕ್ಷಣಗಳಿದ್ದರೆ ದಯವಿಟ್ಟು <a href="/patient/consult" style="color:#E8611A;">ವೈದ್ಯರನ್ನು ಸಂಪರ್ಕಿಸಿ</a>. ಫಲಿತಾಂಶಗಳಲ್ಲಿ ಆಯುರ್ವೇದ ಮತ್ತು ಆಧುನಿಕ ವೈದ್ಯಕೀಯ ಆಯ್ಕೆಗಳು ಸೇರಿವೆ.',
+    hi: 'यह उपकरण आपके लक्षणों के आधार पर संभावित स्वास्थ्य समस्याओं का सुझाव देने के लिए मशीन लर्निंग का उपयोग करता है। यह <strong>पेशेवर चिकित्सकीय निदान का विकल्प नहीं है</strong>। गंभीर लक्षण होने पर कृपया <a href="/patient/consult" style="color:#E8611A;">डॉक्टर से सलाह लें</a>। परिणामों में आयुर्वेदिक और आधुनिक चिकित्सा दोनों विकल्प शामिल हैं।',
+    ta: 'இந்த கருவி உங்கள் அறிகுறிகளின் அடிப்படையில் ஏற்படக்கூடிய உடல்நலப் பிரச்சினைகளைப் பரிந்துரைக்க இயந்திரக் கற்றலைப் பயன்படுத்துகிறது. இது <strong>தொழில்முறை மருத்துவ நோயறிதலுக்கு மாற்றாகாது</strong>. தீவிர அறிகுறிகள் இருந்தால் <a href="/patient/consult" style="color:#E8611A;">மருத்துவரை அணுகவும்</a>. முடிவுகளில் ஆயுர்வேத மற்றும் நவீன மருத்துவ விருப்பங்கள் உள்ளன.',
+    te: 'ఈ సాధనం మీ లక్షణాల ఆధారంగా సంభవించే ఆరోగ్య సమస్యలను సూచించడానికి మెషిన్ లెర్నింగ్‌ను ఉపయోగిస్తుంది. ఇది <strong>వృత్తిపరమైన వైద్య నిర్ధారణకు ప్రత్యామ్నాయం కాదు</strong>. తీవ్రమైన లక్షణాలు ఉంటే దయచేసి <a href="/patient/consult" style="color:#E8611A;">వైద్యుడిని సంప్రదించండి</a>. ఫలితాల్లో ఆయుర్వేద మరియు ఆధునిక వైద్య ఎంపికలు ఉన్నాయి.',
+    bn: 'এই সরঞ্জামটি আপনার উপসর্গের ভিত্তিতে সম্ভাব্য স্বাস্থ্য সমস্যা শনাক্ত করতে মেশিন লার্নিং ব্যবহার করে। এটি <strong>পেশাদার চিকিৎসা নির্ণয়ের বিকল্প নয়</strong>। গুরুতর উপসর্গ থাকলে অনুগ্রহ করে <a href="/patient/consult" style="color:#E8611A;">চিকিৎসকের পরামর্শ নিন</a>। ফলাফলে আয়ুর্বেদিক ও আধুনিক চিকিৎসার উভয় বিকল্প রয়েছে।',
+    mr: 'हे साधन तुमच्या लक्षणांवर आधारित संभाव्य आरोग्य समस्या सुचवण्यासाठी मशीन लर्निंग वापरते. हे <strong>व्यावसायिक वैद्यकीय निदानाचा पर्याय नाही</strong>. गंभीर लक्षणे असल्यास कृपया <a href="/patient/consult" style="color:#E8611A;">डॉक्टरांचा सल्ला घ्या</a>. परिणामांमध्ये आयुर्वेदिक आणि आधुनिक वैद्यकीय दोन्ही पर्यायांचा समावेश आहे.',
+    ml: 'നിങ്ങളുടെ ലക്ഷണങ്ങളെ അടിസ്ഥാനമാക്കി സാധ്യതയുള്ള ആരോഗ്യപ്രശ്നങ്ങൾ നിർദ്ദേശിക്കാൻ ഈ ഉപകരണം മെഷീൻ ലേണിംഗ് ഉപയോഗിക്കുന്നു. ഇത് <strong>പ്രൊഫഷണൽ മെഡിക്കൽ രോഗനിർണയത്തിന് പകരമല്ല</strong>. ഗുരുതരമായ ലക്ഷണങ്ങൾ ഉണ്ടെങ്കിൽ ദയവായി <a href="/patient/consult" style="color:#E8611A;">ഡോക്ടറെ സമീപിക്കുക</a>. ഫലങ്ങളിൽ ആയുർവേദവും ആധുനിക വൈദ്യശാസ്ത്രവും ഉൾപ്പെടുന്നു.',
+    ur: 'یہ ٹول آپ کی علامات کی بنیاد پر ممکنہ صحت کے مسائل تجویز کرنے کے لیے مشین لرننگ استعمال کرتا ہے۔ یہ <strong>پیشہ ورانہ طبی تشخیص کا متبادل نہیں ہے</strong>۔ اگر علامات شدید ہوں تو براہِ کرم <a href="/patient/consult" style="color:#E8611A;">ڈاکٹر سے مشورہ کریں</a>۔ نتائج میں آیورویدک اور جدید طب دونوں کے اختیارات شامل ہیں۔',
+    gu: 'આ સાધન તમારા લક્ષણોના આધારે સંભવિત સ્વાસ્થ્ય સમસ્યાઓ સૂચવવા માટે મશીન લર્નિંગનો ઉપયોગ કરે છે. તે <strong>વ્યાવસાયિક તબીબી નિદાનનો વિકલ્પ નથી</strong>. ગંભીર લક્ષણો હોય તો કૃપા કરીને <a href="/patient/consult" style="color:#E8611A;">ડૉક્ટરની સલાહ લો</a>. પરિણામોમાં આયુર્વેદિક અને આધુનિક તબીબી બંને વિકલ્પો સામેલ છે.',
+    pa: 'ਇਹ ਸਾਧਨ ਤੁਹਾਡੇ ਲੱਛਣਾਂ ਦੇ ਆਧਾਰ ਤੇ ਸੰਭਾਵਿਤ ਸਿਹਤ ਸਮੱਸਿਆਵਾਂ ਦਾ ਸੁਝਾਅ ਦੇਣ ਲਈ ਮਸ਼ੀਨ ਲਰਨਿੰਗ ਦੀ ਵਰਤੋਂ ਕਰਦਾ ਹੈ। ਇਹ <strong>ਪੇਸ਼ੇਵਰ ਡਾਕਟਰੀ ਜਾਂਚ ਦਾ ਬਦਲ ਨਹੀਂ ਹੈ</strong>। ਗੰਭੀਰ ਲੱਛਣ ਹੋਣ ਤੇ ਕਿਰਪਾ ਕਰਕੇ <a href="/patient/consult" style="color:#E8611A;">ਡਾਕਟਰ ਨਾਲ ਸਲਾਹ ਕਰੋ</a>। ਨਤੀਜਿਆਂ ਵਿੱਚ ਆਯੁਰਵੇਦਿਕ ਅਤੇ ਆਧੁਨਿਕ ਦਵਾਈਆਂ ਦੇ ਵਿਕਲਪ ਸ਼ਾਮਲ ਹਨ।'
+};
+
+function updateDisclaimerLanguage() {
+    const language = document.getElementById('disclaimer_lang').value;
+    document.getElementById('disclaimer_message').innerHTML = disclaimerMessages[language] || disclaimerMessages.en;
+}
+
+// ── Page Tabs ─────────────────────────────────────────────────────────────────
+function showPageTab(tab, btn) {
+    const predictPanel = document.getElementById('page_predict');
+    const historyPanel = document.getElementById('page_history');
+    if (!predictPanel || !historyPanel) return;
+
+    predictPanel.style.display = tab === 'predict' ? 'block' : 'none';
+    historyPanel.style.display = tab === 'history' ? 'block' : 'none';
+
+    if (btn) {
+        document.querySelectorAll('.page-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+}
+
+// ── Symptom Selection ─────────────────────────────────────────────────────────
+function toggleSymptom(el) {
+    const s = el.dataset.symptom;
+    if (selectedSymptoms.has(s)) {
+        selectedSymptoms.delete(s);
+        el.classList.remove('selected');
+    } else {
+        selectedSymptoms.add(s);
+        el.classList.add('selected');
+    }
+    document.getElementById('selected_count').textContent = selectedSymptoms.size;
+}
+
+function clearSymptoms() {
+    selectedSymptoms.clear();
+    document.querySelectorAll('.symptom-chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById('selected_count').textContent = 0;
+    clearResult();
+}
+
+function clearResult() {
+    document.getElementById('ml_result').style.display = 'none';
+    const askAiBtn = document.getElementById('ask_ai_disease_btn');
+    if (askAiBtn) askAiBtn.style.display = 'none';
+    closeAskAiModal();
+}
+
+// ── AI Symptom Extraction ─────────────────────────────────────────────────────
+async function extractSymptoms() {
+    const input = document.getElementById('ai_symptom_input').value;
+    if (!input) return;
+    const btn = document.getElementById('ai_extract_btn');
+    btn.textContent = '⏳ ...';
+    btn.disabled = true;
+    try {
+        const r = await fetch('/api/patient_extract_symptoms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: input})
+        });
+        const d = await r.json();
+        clearSymptoms();
+        d.symptoms.forEach(s => {
+            const el = document.querySelector(`.symptom-chip[data-symptom="${s}"]`);
+            if (el) toggleSymptom(el);
+        });
+        if (d.symptoms.length === 0) {
+            alert("No matching symptoms found. Try more specific terms like 'headache', 'fever', 'nausea'.");
+        }
+    } catch(e) {
+        alert("Failed to extract symptoms. Please select manually.");
+    } finally {
+        btn.textContent = '🤖 AI Match';
+        btn.disabled = false;
+    }
+}
+
+// ── Voice Dictation ────────────────────────────────────────────────────────────
+let predictVoiceRecognition = null;
+let predictVoiceIsRecording = false;
+let predictVoiceFinalText = '';
+let predictVoiceLastInterim = '';
+
+function startDictation() {
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+        alert("Your browser does not support Voice Recognition. Please use Google Chrome or Microsoft Edge.");
+        return;
+    }
+
+    const voiceBtn = document.getElementById('voice_btn');
+    const langSelect = document.getElementById('predict_voice_lang');
+    const original = voiceBtn.innerHTML;
+
+    if (predictVoiceIsRecording) {
+        if (predictVoiceRecognition) predictVoiceRecognition.stop();
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    predictVoiceRecognition = new SpeechRecognition();
+    predictVoiceRecognition.continuous = false;
+    predictVoiceRecognition.interimResults = true;
+
+    const selectedLang = langSelect.value;
+    const langMap = {
+        kn: 'kn-IN',
+        hi: 'hi-IN',
+        ta: 'ta-IN',
+        te: 'te-IN',
+        bn: 'bn-IN',
+        mr: 'mr-IN',
+        ml: 'ml-IN',
+        ur: 'ur-PK',
+        gu: 'gu-IN',
+        pa: 'pa-IN',
+        en: 'en-US'
+    };
+    predictVoiceRecognition.lang = langMap[selectedLang] || 'en-US';
+    predictVoiceRecognition.maxAlternatives = 5;
+
+    predictVoiceIsRecording = true;
+    predictVoiceFinalText = '';
+    predictVoiceLastInterim = '';
+    voiceBtn.innerHTML = '🛑';
+    voiceBtn.style.background = '#d32f2f';
+    voiceBtn.style.color = '#fff';
+
+    predictVoiceRecognition.start();
+
+    predictVoiceRecognition.onresult = function(e) {
+        let interimTranscript = '';
+        let finalSeg = '';
+        for (let i = e.resultIndex; i < e.results.length; ++i) {
+            if (e.results[i].isFinal) {
+                finalSeg += e.results[i][0].transcript;
+            } else {
+                interimTranscript += e.results[i][0].transcript;
+            }
+        }
+
+        if (finalSeg) {
+            predictVoiceFinalText += (predictVoiceFinalText ? ' ' : '') + finalSeg;
+        }
+        predictVoiceLastInterim = interimTranscript;
+        const currentDisplay = predictVoiceFinalText + (interimTranscript ? (predictVoiceFinalText ? ' ' : '') + interimTranscript : '');
+        document.getElementById('ai_symptom_input').value = currentDisplay;
+    };
+
+    predictVoiceRecognition.onend = function() {
+        predictVoiceIsRecording = false;
+        voiceBtn.innerHTML = original;
+        voiceBtn.style.background = '#FFF3E0';
+        voiceBtn.style.color = '#E8611A';
+
+        const speechToProcess = (predictVoiceFinalText || predictVoiceLastInterim).trim();
+        if (speechToProcess) {
+            if (selectedLang === 'en') {
+                document.getElementById('ai_symptom_input').value = speechToProcess;
+                extractSymptoms();
+            } else {
+                translatePredictionSpeech(speechToProcess, selectedLang);
+            }
+        } else {
+            console.log('No speech detected in session');
+        }
+    };
+
+    predictVoiceRecognition.onerror = function(e) {
+        predictVoiceIsRecording = false;
+        voiceBtn.innerHTML = original;
+        voiceBtn.style.background = '#FFF3E0';
+        voiceBtn.style.color = '#E8611A';
+        if (e.error !== 'no-speech') {
+            alert("Voice recognition status: " + e.error);
+        }
+    };
+}
+
+async function translatePredictionSpeech(text, sourceLang) {
+    const input = document.getElementById('ai_symptom_input');
+    input.value = 'Translating: ' + text + '...';
+
+    try {
+        const resp = await fetch('/api/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text: text, source_lang: sourceLang, target_lang: 'en'})
+        });
+        const data = await resp.json();
+
+        if (data.success && data.translated) {
+            input.value = data.translated;
+            extractSymptoms();
+        } else {
+            input.value = text;
+            extractSymptoms();
+        }
+    } catch (e) {
+        console.error(e);
+        input.value = text;
+        extractSymptoms();
+    }
+}
+
+// ── ML Prediction ─────────────────────────────────────────────────────────────
+async function predictDisease() {
+    if (selectedSymptoms.size === 0) {
+        alert('Please select at least one symptom first.');
+        return;
+    }
+    const btn = document.getElementById('predict_btn');
+    btn.textContent = '⏳ Analyzing...';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/patient_predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ symptoms: Array.from(selectedSymptoms) })
+        });
+        const data = await resp.json();
+        if (data.error) { alert('Error: ' + data.error); return; }
+
+        currentPrediction = data;
+
+        document.getElementById('predicted_disease').textContent = data.disease;
+        const askAiBtn = document.getElementById('ask_ai_disease_btn');
+        if (askAiBtn) {
+            askAiBtn.style.display = 'inline-flex';
+        }
+        document.getElementById('confidence_pct').textContent = data.confidence + '%';
+        document.getElementById('conf_bar').style.width = data.confidence + '%';
+
+        const top3El = document.getElementById('top3_list');
+        top3El.innerHTML = data.top3.map((item, i) => `
+            <div class="top3-item">
+                <span style="font-size:13px;${i===0?'font-weight:600;color:#2D5016':''}"">${i+1}. ${item.disease}</span>
+                <span style="font-size:12px;color:#7A6558;">${item.confidence}%</span>
+            </div>
+        `).join('');
+
+        switchMedicine('ayurvedic');
+        document.getElementById('ml_result').style.display = 'block';
+        document.getElementById('ml_result').scrollIntoView({behavior:'smooth', block:'start'});
+    } catch(e) {
+        alert('Prediction failed. Please check your connection and try again.');
+        console.error(e);
+    } finally {
+        btn.textContent = '🤖 Predict Disease';
+        btn.disabled = false;
+    }
+}
+
+// ── Medicine Tab Switch ────────────────────────────────────────────────────────
+function switchMedicine(type) {
+    if (!currentPrediction) return;
+    const info = type === 'ayurvedic' ? currentPrediction.medicine_info : currentPrediction.allopathic_info;
+
+    document.getElementById('btn_ayurvedic').className = type === 'ayurvedic' ? 'tab-btn active' : 'tab-btn';
+    document.getElementById('btn_allopathic').className = type === 'allopathic' ? 'tab-btn active' : 'tab-btn';
+    document.getElementById('rx_title').innerHTML = type === 'ayurvedic'
+        ? '<img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Suggested Ayurvedic Treatment'
+        : '🏥 Suggested Modern Medicine';
+
+    const grid = document.getElementById('treatment_grid');
+    if (info && (info.medicine || info.dosage)) {
+        grid.innerHTML = `
+            <div style="background:#F1F8E9;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:8px;">💊 Medicines</div>
+                <div style="font-size:13px;color:#1A1208;font-weight:500;">${info.medicine || 'Not available'}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px;">📋 Dosage</div>
+                <div style="font-size:13px;color:#4A3728;">${info.dosage || 'Consult a specialized doctor'}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px;">⏱️ Duration</div>
+                <div style="font-size:13px;color:#4A3728;">${info.duration || 'As prescribed'}</div>
+            </div>
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px;">🥗 Diet Advice</div>
+                <div style="font-size:13px;color:#4A3728;">${info.diet_advice || 'Balanced diet recommended'}</div>
+            </div>
+            <div style="background:#FFF3E0;border-radius:10px;padding:14px;grid-column:1/-1;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px;">🧘 Lifestyle</div>
+                <div style="font-size:13px;color:#4A3728;">${info.lifestyle || 'Regular exercise and rest'}</div>
+            </div>
+        `;
+    } else {
+        grid.innerHTML = `
+            <div style="grid-column:1/-1;text-align:center;padding:32px;color:#7A6558;">
+                <div style="font-size:48px;margin-bottom:12px;">📋</div>
+                <div style="font-size:14px;">No ${type === 'ayurvedic' ? 'Ayurvedic' : 'Allopathic'} treatment data found for this condition.</div>
+                <div style="font-size:13px;margin-top:8px;"><a href="/patient/consult" style="color:#E8611A;">Consult a specialized doctor</a> for a proper prescription.</div>
+            </div>
+        `;
+    }
+}
+function openAskAiModal() {
+    if (!currentPrediction || !currentPrediction.disease) return;
+    const diseaseName = currentPrediction.disease;
+    const modalDiseaseSpan = document.getElementById('modal_disease_name');
+    if (modalDiseaseSpan) modalDiseaseSpan.textContent = diseaseName;
+    const modal = document.getElementById('ask_ai_lang_modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeAskAiModal() {
+    const modal = document.getElementById('ask_ai_lang_modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function confirmAskAi(lang) {
+    if (!currentPrediction || !currentPrediction.disease) return;
+    const diseaseName = currentPrediction.disease;
+    let prompt = '';
+
+    if (lang === 'kn') {
+        prompt = `ನನಗೆ ${diseaseName} ಇರುವುದು ಊಹಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಈ ಕಾಯಿಲೆಯ ಬಗ್ಗೆ ರೋಗಿಗಳಿಗೆ ಅರ್ಥವಾಗುವಂತೆ ಅತ್ಯಂತ ಸರಳವಾಗಿ ಮತ್ತು ಪರಿಣಾಮಕಾರಿಯಾಗಿ ಸುಮಾರು 30 ಸಾಲುಗಳಲ್ಲಿ ಆಧುನಿಕ ವೈದ್ಯಕೀಯ (Modern Medicine) ಮತ್ತು ಆಯುರ್ವೇದ (Ayurveda) ಎರಡೂ ಪದ್ಧತಿಗಳ ಪ್ರಕಾರ ವಿವರಿಸಿ. ಇದು ತಕ್ಷಣವೇ ವೈದ್ಯರ ಬಳಿ ಹೋಗಬೇಕಾದ ತುರ್ತು (Emergency) ಪರಿಸ್ಥಿತಿಯೇ ಅಥವಾ ಸರಳ ಕಾಯಿಲೆಯೇ ಎಂದು ಸ್ಪಷ್ಟಪಡಿಸಿ, ಆಧುನಿಕ ಚಿಕಿತ್ಸಾ ಕ್ರಮಗಳು ಹಾಗೂ ಆಯುರ್ವೇದ ಪಥ್ಯಾಹಾರ/ಮನೆಮದ್ದುಗಳೊಂದಿಗೆ ಮುಂದಿನ ಅತ್ಯುತ್ತಮ ಕ್ರಮಗಳನ್ನು ತಿಳಿಸಿ.`;
+    } else if (lang === 'hi') {
+        prompt = `मुझे ${diseaseName} का अनुमान लगाया गया है। कृपया इस बीमारी के बारे में मरीजों के लिए सरल, प्रभावी और स्पष्ट भाषा में लगभग 30 पंक्तियों में समझाइए, जिसमें आधुनिक चिकित्सा (Modern Medicine) और आयुर्वेद (Ayurveda) दोनों पद्धतियां शामिल हों। स्पष्ट रूप से बताएं कि क्या यह तुरंत डॉक्टर के पास जाने वाली इमरजेंसी (Emergency) है या सामान्य/साधारण बीमारी है, और आधुनिक देखभाल व आयुर्वेदिक उपचार/पथ्य के साथ आगे के सर्वोत्तम कदम बताएं।`;
+    } else {
+        prompt = `I was predicted with ${diseaseName}. Please explain this disease simply, clearly, and effectively in about 30 lines for patients, combining BOTH Modern Medicine and Ayurvedic systems. State clearly if I must go to a doctor immediately as an Emergency or if it is a simple/manageable condition, provide concise modern medical care and Ayurvedic remedies/pathya, and suggest the best next steps.`;
+    }
+
+    closeAskAiModal();
+    window.location.href = `/patient/chatbot?disease=${encodeURIComponent(diseaseName)}&lang=${encodeURIComponent(lang)}&prompt=${encodeURIComponent(prompt)}`;
+}
+
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('ask_ai_lang_modal');
+    if (event.target === modal) {
+        closeAskAiModal();
+    }
+});
+</script>
+{% endblock %}

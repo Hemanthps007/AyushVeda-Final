@@ -22,13 +22,14 @@ print("╚═══════════════════════�
 
 # ── 1. Install dependencies ───────────────────────────────────────────────────
 print(" Checking dependencies...")
-packages = ['flask', 'sklearn', 'pandas', 'openpyxl', 'joblib', 'numpy', 'werkzeug', 'google.genai']
+packages = ['flask', 'sklearn', 'pandas', 'openpyxl', 'joblib', 'numpy', 'werkzeug', 'google.genai', 'deep_translator']
 for pkg in packages:
     try:
         __import__(pkg)
     except ImportError:
         if pkg == 'sklearn': install_name = 'scikit-learn'
         elif pkg == 'google.genai': install_name = 'google-genai'
+        elif pkg == 'deep_translator': install_name = 'deep-translator'
         else: install_name = pkg
         
         print(f"  Missing {install_name}, installing now...")

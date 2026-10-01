@@ -8,6 +8,10 @@ import json
 from datetime import datetime, date
 from functools import wraps
 from google import genai
+try:
+    from deep_translator import GoogleTranslator
+except ImportError:
+    GoogleTranslator = None
 
 app = Flask(__name__)
 app.secret_key = 'ayurcare_secret_key_2024'
@@ -18,62 +22,49 @@ def inject_now():
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Detect if running under Vercel or similar serverless environments
-IS_VERCEL = os.environ.get('VERCEL') == '1' or os.environ.get('AWS_LAMBDA_FUNCTION_NAME') is not None
-
-if IS_VERCEL:
-    DB_PATH = os.path.join('/tmp', 'ayurcare.db')
-    MODEL_PATH = os.path.join('/tmp', 'disease_model.pkl')
-    SYMPTOMS_PATH = os.path.join('/tmp', 'symptoms_list.pkl')
-    
-    # Ensure /tmp directory exists (useful for local testing on Windows/macOS where it may not exist)
-    os.makedirs('/tmp', exist_ok=True)
-    
-    # Copy assets to /tmp if they don't already exist
-    import shutil
-    
-    ORIGINAL_DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
-    if not os.path.exists(DB_PATH) and os.path.exists(ORIGINAL_DB_PATH):
-        try:
-            shutil.copy2(ORIGINAL_DB_PATH, DB_PATH)
-            os.chmod(DB_PATH, 0o666)
-            print("[AyurCare] Copied database to /tmp")
-        except Exception as e:
-            print("[AyurCare] Error copying database to /tmp:", e)
-            
-    ORIGINAL_MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
-    if not os.path.exists(MODEL_PATH) and os.path.exists(ORIGINAL_MODEL_PATH):
-        try:
-            shutil.copy2(ORIGINAL_MODEL_PATH, MODEL_PATH)
-            os.chmod(MODEL_PATH, 0o666)
-            print("[AyurCare] Copied ML model to /tmp")
-        except Exception as e:
-            print("[AyurCare] Error copying ML model to /tmp:", e)
-            
-    ORIGINAL_SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
-    if not os.path.exists(SYMPTOMS_PATH) and os.path.exists(ORIGINAL_SYMPTOMS_PATH):
-        try:
-            shutil.copy2(ORIGINAL_SYMPTOMS_PATH, SYMPTOMS_PATH)
-            os.chmod(SYMPTOMS_PATH, 0o666)
-            print("[AyurCare] Copied symptoms list to /tmp")
-        except Exception as e:
-            print("[AyurCare] Error copying symptoms list to /tmp:", e)
-else:
-    DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
-    MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
-    SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
-
+DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
+MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
+SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
 EXCEL_PATH = os.path.join(BASE_DIR, 'data', 'ayurvedic_medicines.xlsx')
 ALLOPATHIC_EXCEL_PATH = os.path.join(BASE_DIR, 'data', 'allopathic_medicines.xlsx')
 
-# Try initializing Gemini Client
+# ── Environment & Gemini Client Setup ─────────────────────────────────────────
+def _load_env_file():
+    env_file = os.path.join(BASE_DIR, '.env')
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        k, v = line.split('=', 1)
+                        k, v = k.strip(), v.strip().strip('"').strip("'")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            print("Warning: Could not read .env file:", e)
+
+_load_env_file()
+
 genai_client = None
-if os.environ.get("AIzaSyDbJZv5iqAE4eaGJXNnp29MN5IuQx3Gc9Q"):
-    try:
-        genai_client = genai.Client()
-    except Exception as e:
-        print("GenAI Init Error:", e)
+
+def get_genai_client():
+    global genai_client
+    if genai_client is not None:
+        return genai_client
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        _load_env_file()
+        api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            genai_client = genai.Client(api_key=api_key)
+            return genai_client
+        except Exception as e:
+            print("GenAI Init Error:", e)
+    return None
+
+genai_client = get_genai_client()
 
 # ── ML Model loader with auto-retrain fallback ────────────────────────────────
 def _train_and_save_model():
@@ -81,10 +72,7 @@ def _train_and_save_model():
     import subprocess, sys
     print("[AyurCare] Training ML model...")
     train_script = os.path.join(BASE_DIR, 'ml_model', 'train_model.py')
-    env = os.environ.copy()
-    env['MODEL_PATH'] = MODEL_PATH
-    env['SYMPTOMS_PATH'] = SYMPTOMS_PATH
-    subprocess.run([sys.executable, train_script], env=env, check=True)
+    subprocess.run([sys.executable, train_script], check=True)
     print("[AyurCare] Model trained and saved.")
 
 def _load_model():
@@ -110,6 +98,27 @@ try:
     allopathic_df = pd.read_excel(ALLOPATHIC_EXCEL_PATH)
 except Exception as e:
     allopathic_df = pd.DataFrame()
+
+DEMO_SPECIALISTS = [
+    ('Skin Allergy', 'Dr. Ananya Rao', 'Dermatology'),
+    ('Fungal infection', 'Dr. Ananya Rao', 'Dermatology'),
+    ('Impetigo', 'Dr. Ananya Rao', 'Dermatology'),
+    ('Bronchial Asthma', 'Dr. Meera Nair', 'Respiratory Medicine'),
+    ('Pneumonia', 'Dr. Meera Nair', 'Respiratory Medicine'),
+    ('Common Cold', 'Dr. Meera Nair', 'Respiratory Medicine'),
+    ('Heart attack', 'Dr. Arjun Menon', 'Cardiology'),
+    ('Hypertension', 'Dr. Arjun Menon', 'Cardiology'),
+    ('Diabetes', 'Dr. Kavya Shah', 'Diabetology'),
+    ('Hypoglycemia', 'Dr. Kavya Shah', 'Diabetology'),
+    ('Gastritis', 'Dr. Rohan Iyer', 'Gastroenterology'),
+    ('GERD', 'Dr. Rohan Iyer', 'Gastroenterology'),
+    ('Gastroenteritis', 'Dr. Rohan Iyer', 'Gastroenterology'),
+    ('Migraine', 'Dr. Neha Kulkarni', 'Neurology'),
+    ('Paralysis (brain hemorrhage)', 'Dr. Neha Kulkarni', 'Neurology'),
+]
+SPECIALIST_BY_DISEASE = {disease: {'name': name, 'specialization': specialty} for disease, name, specialty in DEMO_SPECIALISTS}
+for disease in sorted(model.classes_):
+    SPECIALIST_BY_DISEASE.setdefault(disease.strip(), {'name': 'Dr. Priya Deshmukh', 'specialization': 'General Medicine'})
 
 # ── Synonym Map for robust keyword fallback (works without Gemini API) ────────
 SYMPTOM_SYNONYMS = {
@@ -393,6 +402,17 @@ def init_db():
             appointment_time TEXT,
             reason TEXT,
             status TEXT DEFAULT 'Scheduled',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (patient_id) REFERENCES patients(id),
+            FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+        );
+        CREATE TABLE IF NOT EXISTS consultation_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            disease TEXT,
+            mode TEXT NOT NULL,
+            status TEXT DEFAULT 'Pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (patient_id) REFERENCES patients(id),
             FOREIGN KEY (doctor_id) REFERENCES doctors(id)
@@ -883,6 +903,44 @@ def doctor_patients():
     conn.close()
     return render_template('doctor/patients.html', patients=patients)
 
+@app.route('/doctor/predict')
+@login_required('doctor')
+def doctor_predict_page():
+    conn = get_db()
+    patient_id = request.args.get('patient_id', type=int)
+    if patient_id is None:
+        first_patient = conn.execute(
+            "SELECT id FROM patients WHERE doctor_id=? ORDER BY name LIMIT 1",
+            (session['user_id'],)
+        ).fetchone()
+        patient_id = first_patient['id'] if first_patient else None
+    if patient_id:
+        patient = conn.execute(
+            "SELECT * FROM patients WHERE id=? AND doctor_id=?",
+            (patient_id, session['user_id'])
+        ).fetchone()
+        if patient:
+            prescriptions = conn.execute(
+                "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+                (patient_id,)
+            ).fetchall()
+            doctor = conn.execute("SELECT * FROM doctors WHERE id=?", (session['user_id'],)).fetchone()
+            conn.close()
+            return render_template(
+                'doctor/view_patient.html',
+                patient=patient,
+                prescriptions=prescriptions,
+                symptoms_list=symptoms_list,
+                doctor=doctor,
+                prediction_mode=True
+            )
+    patients = conn.execute(
+        "SELECT id, name, email, age, gender, blood_group, phone FROM patients WHERE doctor_id=? ORDER BY name",
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+    return render_template('doctor/predict.html', patients=patients)
+
 @app.route('/doctor/patients/<int:id>')
 @login_required('doctor')
 def doctor_view_patient(id):
@@ -984,7 +1042,17 @@ def vision_extract_symptoms():
 @app.route('/doctor/predict', methods=['POST'])
 @login_required('doctor')
 def doctor_predict():
-    selected_symptoms = request.json.get('symptoms', [])
+    raw_symptoms = request.json.get('symptoms', [])
+    selected_symptoms = set()
+    for s in raw_symptoms:
+        norm = s.strip().rstrip('*').lower()
+        selected_symptoms.add(norm)
+        if norm == 'weakness':
+            selected_symptoms.add('weakness')
+            selected_symptoms.add('weakness_in_limbs')
+        elif norm == 'wheezing':
+            selected_symptoms.add('wheezing')
+
     input_dict = {s: 1 if s in selected_symptoms else 0 for s in symptoms_list}
     input_df = pd.DataFrame([input_dict])
     prediction = model.predict(input_df)[0].strip()
@@ -1047,7 +1115,9 @@ def doctor_predict():
         'Paralysis (brain hemorrhage)': 'Hypertension',
         'Cervical spondylosis': 'Arthritis',
         'Heart attack': 'Hypertension',
-        'Varicose veins': 'Arthritis',
+        'Varicose veins': 'Varicose-vein-type condition',
+        'Varicose-vein-type condition': 'Varicose-vein-type condition',
+        'Liver Disease / Hepatitis': 'Liver Disease',
         'Fungal infection': 'Skin Allergy',
         'Impetigo': 'Skin Allergy',
     }
@@ -1135,7 +1205,28 @@ def doctor_prescribe(patient_id):
     conn.commit()
     conn.close()
     flash('Prescription saved successfully!', 'success')
-    return redirect(url_for('doctor_view_patient', id=patient_id))
+    return redirect(url_for('doctor_view_patient', id=patient_id, tab='history'))
+
+@app.route('/doctor/prescribe/delete/<int:pr_id>', methods=['POST'])
+@login_required('doctor')
+def doctor_delete_prescription(pr_id):
+    conn = get_db()
+    prescription = conn.execute(
+        "SELECT patient_id FROM prescriptions WHERE id=? AND doctor_id=?",
+        (pr_id, session['user_id'])
+    ).fetchone()
+    if prescription:
+        conn.execute("DELETE FROM prescriptions WHERE id=? AND doctor_id=?", (pr_id, session['user_id']))
+        conn.commit()
+        flash('Treatment record deleted successfully.', 'success')
+        patient_id = prescription['patient_id']
+    else:
+        flash('Treatment record not found or access denied.', 'error')
+        patient_id = None
+    conn.close()
+    if patient_id:
+        return redirect(url_for('doctor_view_patient', id=patient_id, tab='history'))
+    return redirect(url_for('doctor_patients'))
 
 @app.route('/doctor/appointments')
 @login_required('doctor')
@@ -1145,8 +1236,12 @@ def doctor_appointments():
         "SELECT a.*, p.name as patient_name, p.phone as patient_phone FROM appointments a JOIN patients p ON a.patient_id=p.id WHERE a.doctor_id=? ORDER BY a.appointment_date DESC",
         (session['user_id'],)
     ).fetchall()
+    consultation_requests = conn.execute(
+        "SELECT cr.*, p.name as patient_name, p.phone as patient_phone FROM consultation_requests cr JOIN patients p ON cr.patient_id=p.id WHERE cr.doctor_id=? ORDER BY cr.created_at DESC",
+        (session['user_id'],)
+    ).fetchall()
     conn.close()
-    return render_template('doctor/appointments.html', appointments=appointments)
+    return render_template('doctor/appointments.html', appointments=appointments, consultation_requests=consultation_requests)
 
 @app.route('/doctor/profile', methods=['GET', 'POST'])
 @login_required('doctor')
@@ -1291,10 +1386,25 @@ def patient_map():
     conn.close()
     return render_template('patient/map.html', patient=patient)
 
-@app.route('/patient/consult')
+@app.route('/patient/consult', methods=['GET', 'POST'])
 @login_required('patient')
 def patient_consult():
     conn = get_db()
+    if request.method == 'POST':
+        doctor_id = request.form.get('doctor_id', type=int)
+        disease = request.form.get('disease', '').strip()
+        doctor = conn.execute("SELECT id FROM doctors WHERE id=?", (doctor_id,)).fetchone()
+        if not doctor:
+            flash('Please select a valid doctor.', 'error')
+        else:
+            conn.execute(
+                "INSERT INTO consultation_requests (patient_id, doctor_id, disease, mode) VALUES (?,?,?,'Video')",
+                (session['user_id'], doctor_id, disease or 'General consultation')
+            )
+            conn.commit()
+            flash('Video consultation request sent. The doctor must approve it before a video call can start.', 'success')
+            conn.close()
+            return redirect(url_for('patient_consult'))
     patient = conn.execute(
         "SELECT p.*, d.name as doctor_name, d.specialization, d.phone as doctor_phone FROM patients p LEFT JOIN doctors d ON p.doctor_id=d.id WHERE p.id=?",
         (session['user_id'],)
@@ -1302,8 +1412,36 @@ def patient_consult():
     doctors = conn.execute(
         "SELECT id, name, phone, specialization, qualification, experience FROM doctors ORDER BY name"
     ).fetchall()
+    video_requests = conn.execute(
+        "SELECT cr.*, d.name as doctor_name FROM consultation_requests cr JOIN doctors d ON cr.doctor_id=d.id WHERE cr.patient_id=? ORDER BY cr.created_at DESC",
+        (session['user_id'],)
+    ).fetchall()
     conn.close()
-    return render_template('patient/consult.html', patient=patient, doctors=doctors)
+    specialists = [
+        (disease, details['name'], details['specialization'])
+        for disease, details in sorted(SPECIALIST_BY_DISEASE.items())
+    ]
+    return render_template(
+        'patient/consult.html', patient=patient, doctors=doctors,
+        video_requests=video_requests, demo_specialists=specialists,
+        diseases=sorted(SPECIALIST_BY_DISEASE)
+    )
+
+@app.route('/doctor/consultation-request/<int:request_id>/<action>', methods=['POST'])
+@login_required('doctor')
+def doctor_consultation_request(request_id, action):
+    if action not in {'approve', 'decline'}:
+        return redirect(url_for('doctor_appointments'))
+    status = 'Approved' if action == 'approve' else 'Declined'
+    conn = get_db()
+    conn.execute(
+        "UPDATE consultation_requests SET status=? WHERE id=? AND doctor_id=?",
+        (status, request_id, session['user_id'])
+    )
+    conn.commit()
+    conn.close()
+    flash(f'Video consultation request {status.lower()}.', 'success')
+    return redirect(url_for('doctor_appointments'))
 
 @app.route('/patient/history')
 @login_required('patient')
@@ -1325,6 +1463,144 @@ def patient_delete_history(pr_id):
     conn.close()
     flash('Treatment record deleted successfully.', 'success')
     return redirect(url_for('patient_history'))
+
+@app.route('/patient/predict')
+@login_required('patient')
+def patient_predict_page():
+    conn = get_db()
+    patient = conn.execute("SELECT * FROM patients WHERE id=?", (session['user_id'],)).fetchone()
+    prescriptions = conn.execute(
+        "SELECT pr.*, d.name as doctor_name, d.specialization FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+    return render_template('patient/predict.html', patient=patient, prescriptions=prescriptions, symptoms_list=symptoms_list)
+
+@app.route('/api/patient_extract_symptoms', methods=['POST'])
+@login_required('patient')
+def patient_extract_symptoms():
+    text = request.json.get('text', '').lower()
+    if not text:
+        return jsonify({'symptoms': []})
+
+    extracted = []
+    if genai_client:
+        prompt = f"""
+        You are an expert Ayurvedic AI. Extract medical symptoms from the following text: "{text}"
+        Map these symptoms to the CLOSEST semantic matches from this pre-defined list:
+        {', '.join(symptoms_list)}
+
+        Rules:
+        - If they say "fever" or similar, map it to "high_fever" or "mild_fever".
+        - If they say "mental illness", map to "depression", "anxiety", or "mood_swings".
+        - Be liberal in your mapping to ensure no symptoms are missed.
+
+        Return ONLY a raw JSON array of strings.
+        """
+        try:
+            resp = genai_client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+            raw_json = resp.text.strip()
+            if "```" in raw_json:
+                raw_json = raw_json.split("```")[1].replace("json", "").strip()
+            extracted = json.loads(raw_json)
+        except Exception as e:
+            print("Patient Symptom Extraction AI Error:", e)
+
+    keyword_found = keyword_extract_symptoms(text)
+    extracted = list(set(extracted) | set(keyword_found))
+    return jsonify({'symptoms': extracted})
+
+@app.route('/api/patient_predict', methods=['POST'])
+@login_required('patient')
+def patient_predict_api():
+    raw_symptoms = request.json.get('symptoms', [])
+    if not raw_symptoms:
+        return jsonify({'error': 'No symptoms selected'}), 400
+
+    selected_symptoms = set()
+    for s in raw_symptoms:
+        norm = s.strip().rstrip('*').lower()
+        selected_symptoms.add(norm)
+        if norm == 'weakness':
+            selected_symptoms.add('weakness')
+            selected_symptoms.add('weakness_in_limbs')
+        elif norm == 'wheezing':
+            selected_symptoms.add('wheezing')
+
+    input_dict = {s: 1 if s in selected_symptoms else 0 for s in symptoms_list}
+    input_df = pd.DataFrame([input_dict])
+    prediction = model.predict(input_df)[0].strip()
+    probas = model.predict_proba(input_df)[0]
+    classes = model.classes_
+    top3_raw = sorted(zip(classes, probas), key=lambda x: -x[1])[:3]
+
+    top3_sum = sum(p for _, p in top3_raw)
+    if top3_sum > 0:
+        rel_top3 = [(d, p / top3_sum) for d, p in top3_raw]
+    else:
+        rel_top3 = top3_raw
+
+    top_rel_p = float(rel_top3[0][1])
+    if top_rel_p >= 0.33:
+        display_confidence = 81.0 + (top_rel_p - 0.33) * (18.2 / 0.67)
+    else:
+        display_confidence = 65.0 + top_rel_p * (16.0 / 0.33)
+
+    top_confidence = round(display_confidence, 1)
+
+    DISEASE_NAME_MAP = {
+        'AIDS': 'HIV/AIDS', 'Allergy': 'Skin Allergy', 'Bronchial Asthma': 'Asthma',
+        'Chicken pox': 'Chickenpox', 'Dengue': 'Dengue Fever', 'Diabetes ': 'Diabetes',
+        'Diabetes': 'Diabetes', 'Dimorphic hemmorhoids(piles)': 'Hemorrhoids',
+        'Drug Reaction': 'Skin Allergy', 'GERD': 'Gastritis', 'Gastroenteritis': 'Gastritis',
+        'Hypertension ': 'Hypertension', 'Hyperthyroidism': 'Thyroid Disorder',
+        'Hypothyroidism': 'Thyroid Disorder', 'Hypoglycemia': 'Diabetes',
+        'Jaundice': 'Liver Disease', 'Chronic cholestasis': 'Liver Disease',
+        'Alcoholic hepatitis': 'Liver Disease', 'Osteoarthristis': 'Osteoarthritis',
+        'Peptic ulcer diseae': 'Peptic Ulcer', 'Typhoid': 'Typhoid Fever',
+        'Urinary tract infection': 'Urinary Tract Infection',
+        'hepatitis A': 'Hepatitis A', 'Hepatitis C': 'Hepatitis B',
+        'Hepatitis D': 'Hepatitis B', 'Hepatitis E': 'Hepatitis B',
+        '(vertigo) Paroymsal  Positional Vertigo': 'Migraine',
+        'Paralysis (brain hemorrhage)': 'Hypertension', 'Cervical spondylosis': 'Arthritis',
+        'Heart attack': 'Hypertension', 'Varicose veins': 'Varicose-vein-type condition',
+        'Varicose-vein-type condition': 'Varicose-vein-type condition',
+        'Liver Disease / Hepatitis': 'Liver Disease',
+        'Fungal infection': 'Skin Allergy', 'Impetigo': 'Skin Allergy',
+    }
+
+    display_name = prediction.strip()
+    medicine_lookup = DISEASE_NAME_MAP.get(prediction, display_name)
+
+    med_row = medicines_df[medicines_df['Disease'] == medicine_lookup]
+    medicine_info = {}
+    if not med_row.empty:
+        medicine_info = {
+            'medicine': med_row.iloc[0]['Medicine'],
+            'dosage': med_row.iloc[0]['Dosage'],
+            'duration': med_row.iloc[0]['Duration'],
+            'diet_advice': med_row.iloc[0]['Diet_Advice'],
+            'lifestyle': med_row.iloc[0]['Lifestyle']
+        }
+
+    allo_row = allopathic_df.loc[allopathic_df['Disease'] == medicine_lookup] if not allopathic_df.empty else pd.DataFrame()
+    allo_info = {}
+    if not allo_row.empty:
+        allo_info = {
+            'medicine': allo_row.iloc[0]['Medicine'],
+            'dosage': allo_row.iloc[0]['Dosage'],
+            'duration': allo_row.iloc[0]['Duration'],
+            'diet_advice': allo_row.iloc[0]['Diet_Advice'],
+            'lifestyle': allo_row.iloc[0]['Lifestyle']
+        }
+
+    return jsonify({
+        'disease': display_name,
+        'confidence': top_confidence,
+        'top3': [{'disease': d.strip(), 'confidence': round(top_confidence if i == 0 else float(p)*100, 1)} for i, (d, p) in enumerate(rel_top3)],
+        'medicine_info': medicine_info,
+        'allopathic_info': allo_info,
+    })
 
 @app.route('/api/patient_triage', methods=['POST'])
 @login_required('patient')
@@ -1456,6 +1732,7 @@ def community_health():
         total_patients = len(patients)
         patient_address_map = {}  # Track diseases per patient address
         disease_patient_map = {}  # Keep for backward compatibility
+        diagnosed_patient_ids = set()  # Track unique diagnosed patient IDs
         
         if total_patients > 0:
             # For each patient, get their prescriptions with predicted diseases
@@ -1472,6 +1749,7 @@ def community_health():
                 
                 # Map patient addresses to their diseases
                 if prescriptions:
+                    diagnosed_patient_ids.add(patient_id)
                     if patient_address not in patient_address_map:
                         patient_address_map[patient_address] = {
                             'name': patient_name,
@@ -1502,14 +1780,14 @@ def community_health():
         
         conn.close()
         
-        # Calculate total patients with at least one diagnosis
-        patients_with_diagnosis = len(patient_address_map)
+        # Calculate total unique patients with at least one diagnosis
+        patients_with_diagnosis = len(diagnosed_patient_ids) if diagnosed_patient_ids else (total_patients if total_patients > 0 else 1)
         
         # Prepare patient address stats for chart (grouped by address)
         patient_address_stats = []
         for address, data in sorted(patient_address_map.items(), key=lambda x: -len(x[1]['diseases'])):
             disease_count = len(data['diseases'])
-            percentage = round((disease_count / len(patient_address_map) * 100), 2) if patient_address_map else 0
+            percentage = round((disease_count / patients_with_diagnosis * 100), 1) if patients_with_diagnosis else 0
             patient_address_stats.append({
                 'address': address,
                 'name': data['name'],
@@ -1524,7 +1802,7 @@ def community_health():
         if patients_with_diagnosis > 0:
             for disease, patients_list in sorted(disease_patient_map.items(), key=lambda x: -len(x[1])):
                 count = len(patients_list)
-                percentage = round((count / patients_with_diagnosis * 100), 2)
+                percentage = round((count / patients_with_diagnosis * 100), 1)
                 disease_stats.append({
                     'disease': disease,
                     'patient_count': count,
@@ -1630,6 +1908,300 @@ def remove_patient_disease(patient_id, disease):
     except Exception as e:
         print("Remove Disease Error:", e)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def translate_text(text, source_lang='auto', target_lang='en'):
+    if not text or not str(text).strip():
+        return ''
+
+    clean_text = str(text).strip()
+    norm_source = (source_lang or 'auto').strip().lower()
+
+    lang_map = {
+        'kn': 'kn', 'kannada': 'kn', 'kn-in': 'kn',
+        'hi': 'hi', 'hindi': 'hi', 'hi-in': 'hi',
+        'ta': 'ta', 'tamil': 'ta', 'ta-in': 'ta',
+        'te': 'te', 'telugu': 'te', 'te-in': 'te',
+        'bn': 'bn', 'bengali': 'bn', 'bn-in': 'bn',
+        'mr': 'mr', 'marathi': 'mr', 'mr-in': 'mr',
+        'ml': 'ml', 'malayalam': 'ml', 'ml-in': 'ml',
+        'ur': 'ur', 'urdu': 'ur', 'ur-pk': 'ur', 'ur-in': 'ur',
+        'gu': 'gu', 'gujarati': 'gu', 'gu-in': 'gu',
+        'pa': 'pa', 'punjabi': 'pa', 'pa-in': 'pa',
+        'en': 'en', 'english': 'en', 'en-us': 'en', 'en-in': 'en',
+    }
+    sl = lang_map.get(norm_source, norm_source)
+    if sl not in {'kn', 'hi', 'ta', 'te', 'bn', 'mr', 'ml', 'ur', 'gu', 'pa', 'en'}:
+        sl = 'auto'
+
+    tl = lang_map.get(str(target_lang).strip().lower(), 'en')
+
+    if sl == tl and sl != 'auto':
+        return clean_text
+
+    # Tier 1: Google Translate GTX endpoint (ultra-fast, highly accurate for Indian languages)
+    try:
+        import urllib.request, urllib.parse, json
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl={sl}&tl={tl}&dt=t&q=" + urllib.parse.quote(clean_text)
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=6) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            if res_data and isinstance(res_data, list) and res_data[0]:
+                translated = ''.join([part[0] for part in res_data[0] if part and part[0]])
+                if translated and translated.strip():
+                    return translated.strip()
+    except Exception as e1:
+        print("[Translate] GTX error:", e1)
+
+    # Tier 2: deep_translator MyMemoryTranslator
+    try:
+        from deep_translator import MyMemoryTranslator
+        src_tag = f"{sl}-IN" if sl != 'auto' else 'en-GB'
+        tgt_tag = f"{tl}-GB" if tl == 'en' else f"{tl}-IN"
+        mm = MyMemoryTranslator(source=src_tag, target=tgt_tag)
+        result = mm.translate(clean_text)
+        if result and result.strip() and not result.startswith("MYMEMORY WARNING"):
+            return result.strip()
+    except Exception as e2:
+        print("[Translate] MyMemory error:", e2)
+
+    # Tier 3: deep_translator GoogleTranslator
+    if GoogleTranslator:
+        try:
+            gt = GoogleTranslator(source=sl, target=tl)
+            res = gt.translate(clean_text)
+            if res and res.strip():
+                return res.strip()
+        except Exception as e3:
+            print("[Translate] GoogleTranslator error:", e3)
+
+    # Tier 4: Gemini AI fallback
+    try:
+        client = get_genai_client()
+        if client:
+            lang_names = {
+                'kn': 'Kannada', 'hi': 'Hindi', 'ta': 'Tamil', 'te': 'Telugu',
+                'bn': 'Bengali', 'mr': 'Marathi', 'ml': 'Malayalam', 'ur': 'Urdu',
+                'gu': 'Gujarati', 'pa': 'Punjabi', 'en': 'English', 'auto': 'the Indian language'
+            }
+            src_name = lang_names.get(sl, 'the Indian language')
+            prompt = f"Translate the following medical/symptom text from {src_name} to English accurately. Provide ONLY the translated English sentence, with no quotes or explanation:\n\n{clean_text}"
+            for m in ['gemini-2.5-flash-lite', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']:
+                try:
+                    response = client.models.generate_content(model=m, contents=prompt)
+                    if response.text and response.text.strip():
+                        return response.text.strip()
+                except Exception:
+                    continue
+    except Exception as e4:
+        print("[Translate] Gemini fallback error:", e4)
+
+    # Tier 5: Common symptom phrase mapping fallback
+    lower = clean_text.lower()
+    mapping = {
+        'ತಲೆನೋವು': 'headache', 'सिरदर्द': 'headache', 'தலைவலி': 'headache', 'తలనెప్పి': 'headache',
+        'ಜ್ವರ': 'fever', 'बुखार': 'fever', 'காய்ச்சல்': 'fever', 'జ్వరం': 'fever',
+        'ಕೆಮ್ಮು': 'cough', 'खांसी': 'cough', 'இருமல்': 'cough', 'దగ్गु': 'cough',
+        'ಶೀತ': 'cold', 'सर्दी': 'cold', 'தடிமன்': 'cold', 'జలుబు': 'cold',
+        'ವಾಂತಿ': 'vomiting', 'उल्टी': 'vomiting', 'വാந்தி': 'vomiting', 'వాంతులు': 'vomiting',
+        'ಹೊಟ್ಟೆ ನೋವು': 'stomach pain', 'पेट दर्द': 'stomach pain', 'വയറുവേദന': 'stomach pain',
+        'ನೋವು': 'pain', 'दर्द': 'pain', 'வலி': 'pain', 'నొప్పి': 'pain',
+        'ದಣಿವು': 'fatigue', 'थकान': 'fatigue', 'ಅಲರ್ಜಿ': 'allergy', 'एलर्जी': 'allergy'
+    }
+    detected = [v for k, v in mapping.items() if k in clean_text]
+    if detected:
+        return ', '.join(detected)
+
+    return clean_text
+
+
+@app.route('/api/translate', methods=['POST'])
+def translate_speech():
+    if 'role' not in session:
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+    data = request.json or {}
+    text = (data.get('text') or '').strip()
+    source_lang = data.get('source_lang', 'kn')
+    target_lang = data.get('target_lang', 'en')
+
+    if not text:
+        return jsonify({'success': False, 'error': 'No text provided'})
+
+    try:
+        translated_text = translate_text(text, source_lang=source_lang, target_lang=target_lang)
+        return jsonify({'success': True, 'translated': translated_text})
+    except Exception as e:
+        print("Translation Error:", e)
+        return jsonify({'success': False, 'error': str(e)})
+
+# ─── Patient AI Chatbot (AyushBot) ──────────────────────────────────────────
+@app.route('/patient/chatbot')
+@login_required('patient')
+def patient_chatbot():
+    conn = get_db()
+    patient = conn.execute(
+        "SELECT p.*, d.name as doctor_name, d.specialization, d.phone as doctor_phone FROM patients p LEFT JOIN doctors d ON p.doctor_id=d.id WHERE p.id=?",
+        (session['user_id'],)
+    ).fetchone()
+    recent_prescriptions = conn.execute(
+        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 3",
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+
+    client = get_genai_client()
+    gemini_ready = bool(client is not None or os.environ.get("GEMINI_API_KEY"))
+
+    return render_template(
+        'patient/chatbot.html',
+        patient=patient,
+        prescriptions=recent_prescriptions,
+        gemini_ready=gemini_ready
+    )
+
+
+@app.route('/api/patient/chatbot', methods=['POST'])
+def api_patient_chatbot():
+    if session.get('role') != 'patient' or not session.get('user_id'):
+        return jsonify({'success': False, 'error': 'Unauthorized. Please login as a patient.'}), 401
+
+    data = request.json or {}
+    user_message = (data.get('message') or '').strip()
+    history = data.get('history') or []
+    lang = data.get('lang', 'en')
+
+    if not user_message:
+        return jsonify({'success': False, 'error': 'Please enter a message.'}), 400
+
+    client = get_genai_client()
+    if not client:
+        return jsonify({
+            'success': False,
+            'error': 'Gemini API key is not configured or client could not be initialized. Please verify GEMINI_API_KEY in your .env file.'
+        }), 503
+
+    try:
+        conn = get_db()
+        patient = conn.execute(
+            "SELECT p.*, d.name as doctor_name, d.specialization, d.phone as doctor_phone FROM patients p LEFT JOIN doctors d ON p.doctor_id=d.id WHERE p.id=?",
+            (session['user_id'],)
+        ).fetchone()
+        recent_prescriptions = conn.execute(
+            "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 2",
+            (session['user_id'],)
+        ).fetchall()
+        conn.close()
+
+        p_name = patient['name'] if patient else 'Patient'
+        p_age = patient['age'] if patient and patient['age'] else 'Not specified'
+        p_gender = patient['gender'] if patient and patient['gender'] else 'Not specified'
+        p_blood = patient['blood_group'] if patient and patient['blood_group'] else 'Not specified'
+        p_allergies = patient['allergies'] if patient and patient['allergies'] else 'None reported'
+        p_conditions = patient['preexisting_conditions'] if patient and patient['preexisting_conditions'] else 'None reported'
+        doctor_name = patient['doctor_name'] if patient and patient['doctor_name'] else 'Assigned Physician'
+        doctor_spec = patient['specialization'] if patient and patient['specialization'] else 'Ayurvedic Medicine'
+
+        rx_lines = []
+        if recent_prescriptions:
+            for rx in recent_prescriptions:
+                rx_lines.append(f"- Condition: {rx['predicted_disease']} | Medicines: {rx['medicines']} | Routine/Dosage: {rx['dosage']} | Advice: {rx['suggestions'] or 'Follow prescribed instructions'}")
+        rx_context = "\n".join(rx_lines) if rx_lines else "No current prescriptions on record."
+
+        system_instruction = f"""You are AyushBot, the specialized Healthcare & Integrative AI Assistant for the AyushVeda healthcare platform.
+Your mission is to provide warm, accurate, and deeply insightful guidance combining BOTH traditional **Ayurveda** and evidence-based **Modern Medicine** to help patients understand their health, conditions, and treatments.
+
+PATIENT CONTEXT (Use subtly to personalize advice):
+• Name: {p_name}
+• Age: {p_age} | Gender: {p_gender} | Blood Group: {p_blood}
+• Known Allergies: {p_allergies}
+• Pre-existing Conditions: {p_conditions}
+• Assigned Doctor: Dr. {doctor_name} ({doctor_spec})
+• Recent Prescriptions & Treatments on File:
+{rx_context}
+
+STRICT SAFETY AND CLINICAL RULES:
+1. ALLERGEN CAUTION: The patient has allergies: [{p_allergies}]. NEVER suggest herbs, ingredients, dairy, or foods containing their allergens. Explicitly warn if a traditional formula might conflict.
+2. MEDICAL SCOPE: You are an educational and supportive wellness chatbot. Do NOT diagnose emergency conditions or unilaterally modify prescription drug dosages.
+3. EMERGENCY & CRITICAL TRIAGE: If the user mentions acute red-flag symptoms (severe chest pain, sudden numbness/paralysis, difficulty breathing, unmanageable high fever, profuse bleeding), immediately tell them to contact Dr. {doctor_name} or emergency healthcare services.
+4. INTEGRATED DUAL-SYSTEM (MODERN MEDICINE + AYURVEDA) & ~30-LINE CONCISE FORMAT:
+   When the patient asks about a predicted disease or health condition:
+   - Provide a balanced explanation combining BOTH **Modern Medicine** (pathophysiology, standard clinical measures, diagnostic checks) AND **Ayurveda** (Dosha imbalance - Vata/Pitta/Kapha, Agni, body constitution).
+   - **Emergency Triage Assessment:**
+     • If severe, high-risk, or life-threatening (e.g. Heart Attack, Dengue, Pneumonia, Tuberculosis, Stroke, Severe Hepatitis, Appendicitis, Sepsis, severe breathing crisis, acute hemorrhage):
+       State clearly in bold at the top:
+       "🚨 **EMERGENCY: Please consult a doctor or go to the hospital emergency room immediately!** This condition requires immediate in-person clinical care and cannot be managed with home remedies alone."
+     • If simple, mild, or manageable (e.g. Common Cold, Mild Headache, Mild Acidity/GERD, Mild Indigestion, Seasonal Allergies, Mild Muscle Strain):
+       Reassure the patient: "This is generally a common and manageable condition."
+   - **Practical Dual-System Plan:**
+     • **Modern Medicine Guidance:** Key clinical precautions, hydration, monitoring vitals/temperature, and standard care.
+     • **Ayurvedic Care:** Natural home remedies, Pathya (foods to favor), Apathya (foods to avoid), and calming daily lifestyle routines (Dinacharya).
+   - **Concise 25-30 Line Rule:** Keep the entire response to approximately 25 to 30 lines maximum. Do NOT write unusual, obscure, or rambling filler information. Make every point simple, effective, and easily understandable for everyday patients!
+   - **Next Steps:** End by inviting the patient to ask their next specific question (e.g. asking for a customized diet chart, specific home remedy recipe, or medication questions) so you can provide the best output based on their next context.
+5. STRUCTURE & FORMATTING: Structure your answers beautifully using Markdown:
+   - Use bold titles and bullet points.
+   - Highlight terms clearly.
+6. TONE: Compassionate, culturally authentic, knowledgeable, polite, simple, and encouraging.
+7. LANGUAGE ADAPTATION: If the prompt is in Kannada or the requested language is 'kn', respond ENTIRELY in simple, natural Kannada. If the prompt is in Hindi or 'hi', respond ENTIRELY in simple, natural Hindi. If in English, respond in English.
+"""
+
+        conversation_prompt = f"{system_instruction}\n\n=== CONVERSATION HISTORY ===\n"
+        for msg in history[-8:]:
+            r = "Patient" if msg.get('role') == 'user' else "AyushBot"
+            c = (msg.get('text') or '').strip()
+            if c:
+                conversation_prompt += f"{r}: {c}\n"
+
+        lang_reminder = ""
+        if lang == 'kn':
+            lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply completely in simple, easy-to-understand, fluent Kannada (ಕನ್ನಡ).]"
+        elif lang == 'hi':
+            lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply completely in simple, easy-to-understand, fluent Hindi (हिंदी).]"
+        else:
+            lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply in simple, clear, and effective English.]"
+
+        conversation_prompt += f"Patient: {user_message}{lang_reminder}\nAyushBot:"
+
+        models_to_try = [
+            'gemini-2.5-flash-lite',
+            'gemini-flash-lite-latest',
+            'gemini-3.1-flash-lite-preview',
+            'gemini-2.5-flash',
+            'gemini-flash-latest'
+        ]
+        ai_reply = None
+        used_model = None
+        last_error = None
+
+        for m in models_to_try:
+            try:
+                resp = client.models.generate_content(
+                    model=m,
+                    contents=conversation_prompt
+                )
+                if resp and resp.text:
+                    ai_reply = resp.text.strip()
+                    used_model = m
+                    break
+            except Exception as ex:
+                last_error = ex
+                print(f"[AyushBot] Model {m} error: {ex}")
+                continue
+
+        if not ai_reply:
+            raise Exception(f"Gemini API generation failed across models: {last_error}")
+
+        return jsonify({
+            'success': True,
+            'reply': ai_reply,
+            'model': used_model
+        })
+
+    except Exception as e:
+        print("AyushBot API Error:", e)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 # ─── Logout ───────────────────────────────────────────────────────────────────
 @app.route('/logout')

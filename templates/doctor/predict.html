@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}AI Disease Prediction{% endblock %}
+{% block page_title %}AI Disease Prediction{% endblock %}
+{% block breadcrumb %}Doctor / AI Disease Prediction{% endblock %}
+{% block nav %}
+<span class="nav-section-label">Main</span>
+<a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
+<span class="nav-section-label">Clinical</span>
+<a href="/doctor/patients" class="nav-link"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/predict" class="nav-link active"><span class="icon">🤖</span> AI Disease Prediction</a>
+<a href="/doctor/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
+<span class="nav-section-label">Account</span>
+<a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:24px;background:linear-gradient(135deg,#2D5016,#4A7C22);border:none;color:#fff;">
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+        <div style="font-size:44px;line-height:1;">🤖</div>
+        <div>
+            <h2 style="font-size:28px;color:#fff;margin-bottom:4px;">AI Disease Prediction</h2>
+            <p style="font-size:14px;color:rgba(255,255,255,.78);">Select a patient to review symptoms, run the AI prediction, and prepare a prescription.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Choose a Patient</h3>
+        <span class="badge badge-orange">{{ patients|length }} Assigned</span>
+    </div>
+    {% if patients %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+        {% for patient in patients %}
+        <div style="border:1px solid #F0E8D8;border-radius:14px;padding:20px;background:#fff;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                <div style="width:48px;height:48px;background:#E8611A;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;">{{ patient.name[0].upper() }}</div>
+                <div>
+                    <h4 style="font-size:18px;color:#1A1208;">{{ patient.name }}</h4>
+                    <p style="font-size:12px;color:#7A6558;">{{ patient.email }}</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                <span class="badge badge-blue">{{ patient.age or 'N/A' }} yrs</span>
+                <span class="badge badge-orange">{{ patient.gender or 'N/A' }}</span>
+                <span class="badge badge-red">{{ patient.blood_group or 'N/A' }}</span>
+            </div>
+            <a href="{{ url_for('doctor_predict_page', patient_id=patient.id) }}" class="btn btn-primary" style="width:100%;justify-content:center;">Open AI Prediction →</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:64px;color:#7A6558;">
+        <div style="font-size:56px;margin-bottom:16px;">👨‍⚕️</div>
+        <h3 style="font-size:22px;margin-bottom:8px;">No patients assigned</h3>
+        <p>Patients must be assigned to you before an AI prediction can be created.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

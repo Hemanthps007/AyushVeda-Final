@@ -6,7 +6,8 @@
 <span class="nav-section-label">Main</span>
 <a href="/doctor/dashboard" class="nav-link"><span class="icon"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Dashboard</a>
 <span class="nav-section-label">Clinical</span>
-<a href="/doctor/patients" class="nav-link active"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/patients" class="nav-link{% if not prediction_mode %} active{% endif %}"><span class="icon"><img src="/static/images/patients_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Patients</a>
+<a href="/doctor/predict{% if prediction_mode %}?patient_id={{ patient.id }}{% endif %}" class="nav-link{% if prediction_mode %} active{% endif %}"><span class="icon">🤖</span> AI Disease Prediction</a>
 <a href="/doctor/appointments" class="nav-link"><span class="icon"><img src="/static/images/appointments_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> Appointments</a>
 <span class="nav-section-label">Account</span>
 <a href="/doctor/profile" class="nav-link"><span class="icon"><img src="/static/images/profile_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></span> My Profile</a>
@@ -158,12 +159,12 @@
 
 <!-- Tabs -->
 <div style="display:flex;gap:10px;margin-bottom:24px">
-    <button class="tab-btn active" onclick="showTab('predict',this)">🤖 ML Disease Prediction</button>
-    <button class="tab-btn" onclick="showTab('history',this)"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Treatment History ({{ prescriptions|length }})</button>
+    <button class="tab-btn{% if request.args.get('tab', 'predict') != 'history' %} active{% endif %}" onclick="showTab('predict',this)">🤖 ML Disease Prediction</button>
+    <button class="tab-btn{% if request.args.get('tab') == 'history' %} active{% endif %}" onclick="showTab('history',this)"><img src="/static/images/dashboard_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Treatment History ({{ prescriptions|length }})</button>
 </div>
 
 <!-- ML PREDICTION TAB -->
-<div id="tab_predict">
+<div id="tab_predict"{% if request.args.get('tab') == 'history' %} style="display:none"{% endif %}>
     {% if patient.triage_symptoms %}
     <div style="background:#FFF3E0;border:2px solid #E8611A;border-radius:12px;padding:20px;margin-bottom:24px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -192,11 +193,35 @@
                 <button onclick="predictDisease()" class="btn btn-primary" id="predict_btn">🤖 Predict Disease</button>
             </div>
         </div>
-        <div style="margin-bottom:20px;display:flex;gap:10px;padding:0 24px;">
+
+        <div style="margin-bottom:8px;display:flex;gap:10px;padding:0 24px;flex-wrap:wrap;align-items:center;">
             <button type="button" onclick="startDictation()" class="btn btn-outline" id="voice_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0;font-size:18px;padding:0 14px;" title="Dictate Symptoms">🎙️</button>
+            <button type="button" onclick="toggleDoctorTranslation()" id="trans_record_btn" class="btn btn-outline" style="border-color:#7B1FA2;color:#7B1FA2;background:#F3E5F5;font-size:18px;padding:0 14px;" title="Doctor Language Translator">🎤</button>
+            <select id="trans_lang" aria-label="Doctor language translator language" style="padding:10px;border:1px solid #D0C8C0;border-radius:8px;min-width:160px;font-family:'DM Sans';">
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="ml">മലയാളം (Malayalam)</option>
+                <option value="ur">اردو (Urdu)</option>
+                <option value="gu">ગુજરાતી (Gujarati)</option>
+                <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                <option value="en">English</option>
+            </select>
             <input type="text" id="ai_symptom_input" placeholder="✨ Type or speak symptoms here..." style="flex:1;padding:12px;border:1px solid #D0C8C0;border-radius:8px;font-family:'DM Sans';font-size:14px">
             <button type="button" onclick="extractSymptoms()" class="btn btn-outline" id="ai_extract_btn" style="border-color:#E8611A;color:#E8611A;background:#FFF3E0">🤖 AI Auto</button>
         </div>
+        <div style="margin:0 24px 20px;padding:8px 12px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:8px;font-size:12px;color:#6A1B9A;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <strong>Doctor Language Translator</strong>
+            <span id="trans_source">Waiting for patient speech</span>
+            <span aria-hidden="true">→</span>
+            <span id="trans_result">English translation appears here</span>
+            <span id="trans_status" style="color:#888;">Press the purple mic to start</span>
+            <button onclick="useTranslationAsSymptoms()" id="use_trans_btn" style="display:none;padding:6px 14px;background:#2D5016;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans';">✅ Use as Symptom Input</button>
+        </div>
+
         <div class="symptom-grid" style="padding:0 24px;">
             {% for symptom in symptoms_list %}
             <div class="symptom-chip" onclick="toggleSymptom(this)" data-symptom="{{ symptom }}">
@@ -269,11 +294,12 @@
                 <div><span style="color:#7A6558">Experience:</span> <strong>{{ doctor.experience }} Years</strong></div>
             </div>
             <div style="margin-top:12px; padding-top:12px; border-top:1px solid #E0D8D0; font-size:12px; color:#7A6558; font-style:italic;">
-                <p style="margin: 0 0 8px 0;">By proceeding below, you assume full clinical responsibility for ensuring the predicted Ayurvedic treatments (e.g., sweet medicines) are safe for this patient's medical history (e.g., Diabetes).</p>
-                <p style="margin: 0 0 4px 0; font-weight: 600;">Online Consultation Guidelines:</p>
+                <p style="margin: 0 0 8px 0;"><strong>Clinical Decision Support Notice:</strong> This AI prediction is a cross-checking aid for reviewing the patient's reported symptoms, possible fever-related conditions, and treatment options. It is not a diagnosis and does not replace your clinical assessment.</p>
+                <p style="margin: 0 0 4px 0; font-weight: 600;">Before prescribing, please:</p>
                 <ul style="margin: 0; padding-left: 16px; line-height: 1.5;">
-                    <li>As this is an online digital platform, ensure that your prescription acts as a viable alternative for patients who cannot immediately attend an in-person physical consultation.</li>
-                    <li>If the patient's conditions require direct physical examination, please advise them to visit a nearby clinic or hospital before proceeding with complex treatments.</li>
+                    <li>Confirm the result against the patient's history, allergies, current medicines, examination findings, and clinical judgement.</li>
+                    <li>Review the safety warnings and adjust or reject AI-suggested Ayurvedic or modern medicines when clinically necessary.</li>
+                    <li>Arrange an in-person examination or urgent referral when the patient's symptoms require direct medical care.</li>
                 </ul>
             </div>
         </div>
@@ -314,7 +340,7 @@
 </div>
 
 <!-- HISTORY TAB -->
-<div id="tab_history" style="display:none">
+<div id="tab_history"{% if request.args.get('tab') != 'history' %} style="display:none"{% endif %}>
     {% if prescriptions %}
     {% for pr in prescriptions %}
     <div class="card" style="margin-bottom:16px">
@@ -323,7 +349,12 @@
                 <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#1A1208">{{ pr.predicted_disease }}</h3>
                 <p style="color:#7A6558;font-size:13px">Prescribed by Dr. {{ pr.doctor_name }} · {{ pr.created_at[:10] }}</p>
             </div>
-            <span class="badge badge-green">Completed</span>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span class="badge badge-green">Completed</span>
+                <form action="{{ url_for('doctor_delete_prescription', pr_id=pr.id) }}" method="POST" onsubmit="return confirm('Delete this treatment record?');" style="margin:0">
+                    <button type="submit" class="btn btn-outline" style="color:#C62828;border-color:#FFCDD2;background:#FFF5F5;padding:6px 14px;font-size:13px">🗑️ Delete</button>
+                </form>
+            </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px">
             <div style="background:#FBF7F0;border-radius:10px;padding:14px">
@@ -535,7 +566,13 @@ function startDictation() {
 
         recognition.continuous = false;
         recognition.interimResults = false;
-        recognition.lang = 'en-US'; // Or you can set this to auto, hi-IN, etc.
+        
+        const langChoice = (document.getElementById('trans_lang') ? document.getElementById('trans_lang').value : 'en');
+        const speechLangMap = {
+            kn: 'kn-IN', hi: 'hi-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN',
+            mr: 'mr-IN', ml: 'ml-IN', ur: 'ur-PK', gu: 'gu-IN', pa: 'pa-IN', en: 'en-US'
+        };
+        recognition.lang = speechLangMap[langChoice] || 'en-US';
 
         const voiceBtn = document.getElementById('voice_btn');
         let originalText = voiceBtn.textContent;
@@ -543,21 +580,42 @@ function startDictation() {
         
         recognition.start();
 
-        recognition.onresult = function(e) {
-            document.getElementById('ai_symptom_input').value = e.results[0][0].transcript;
-            recognition.stop();
+        recognition.onresult = async function(e) {
+            const rawSpeech = e.results[0][0].transcript;
             voiceBtn.textContent = originalText;
-            extractSymptoms(); // Automatically trigger extraction
+            
+            if (langChoice && langChoice !== 'en') {
+                const inputEl = document.getElementById('ai_symptom_input');
+                inputEl.value = 'Translating: ' + rawSpeech + '...';
+                try {
+                    const resp = await fetch('/api/translate', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: rawSpeech, source_lang: langChoice })
+                    });
+                    const data = await resp.json();
+                    if (data.success && data.translated) {
+                        inputEl.value = data.translated;
+                    } else {
+                        inputEl.value = rawSpeech;
+                    }
+                } catch(err) {
+                    console.error("Dictation translation error:", err);
+                    inputEl.value = rawSpeech;
+                }
+            } else {
+                document.getElementById('ai_symptom_input').value = rawSpeech;
+            }
+            extractSymptoms();
         };
 
         recognition.onerror = function(e) {
             console.error(e);
-            recognition.stop();
             voiceBtn.textContent = originalText;
             alert("Voice recognition failed: " + e.error);
         };
     } else {
-        alert("Your browser does not support Voice Recognition. Please use Google Chrome.");
+        alert("Your browser does not support Voice Recognition. Please use Google Chrome or Microsoft Edge.");
     }
 }
 
@@ -620,5 +678,132 @@ function showTab(tab, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 }
+
+// ── Doctor Voice Translator ───────────────────────────────────────────────────
+let transRecognition = null;
+let transIsRecording = false;
+let doctorTransFinal = '';
+let doctorTransInterim = '';
+
+function toggleDoctorTranslation() {
+    if (transIsRecording) {
+        if (transRecognition) {
+            try { transRecognition.stop(); } catch(e) {}
+        }
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert('Voice recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.');
+        return;
+    }
+
+    const langSelect = document.getElementById('trans_lang');
+    const langChoice = langSelect ? langSelect.value : 'kn';
+    transRecognition = new SpeechRecognition();
+    transRecognition.continuous = false;
+    transRecognition.interimResults = true;
+    const speechLangMap = {
+        kn: 'kn-IN', hi: 'hi-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN',
+        mr: 'mr-IN', ml: 'ml-IN', ur: 'ur-PK', gu: 'gu-IN', pa: 'pa-IN', en: 'en-US'
+    };
+    transRecognition.lang = speechLangMap[langChoice] || 'kn-IN';
+
+    const btn = document.getElementById('trans_record_btn');
+    btn.style.background = '#C62828';
+    btn.innerHTML = '🛑';
+    document.getElementById('trans_status').textContent = 'Listening... Speak in ' + (langSelect ? langSelect.options[langSelect.selectedIndex].text : 'selected language');
+    document.getElementById('trans_source').innerHTML = '<i>Listening...</i>';
+    document.getElementById('trans_result').textContent = '—';
+    document.getElementById('use_trans_btn').style.display = 'none';
+
+    doctorTransFinal = '';
+    doctorTransInterim = '';
+
+    transRecognition.onresult = function(e) {
+        let interim = '';
+        let finalSeg = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) {
+                finalSeg += e.results[i][0].transcript;
+            } else {
+                interim += e.results[i][0].transcript;
+            }
+        }
+        if (finalSeg) {
+            doctorTransFinal += (doctorTransFinal ? ' ' : '') + finalSeg;
+        }
+        doctorTransInterim = interim;
+        const liveText = doctorTransFinal + (interim ? (doctorTransFinal ? ' ' : '') + '<i style="color:#7B1FA2">' + interim + '</i>' : '');
+        document.getElementById('trans_source').innerHTML = liveText || '<i>Listening...</i>';
+    };
+
+    transRecognition.onend = async function() {
+        transIsRecording = false;
+        btn.style.background = '#F3E5F5';
+        btn.innerHTML = '🎤';
+
+        const speechToTranslate = (doctorTransFinal || doctorTransInterim).trim();
+
+        if (!speechToTranslate) {
+            document.getElementById('trans_status').textContent = 'No speech detected. Click 🎤 to speak again.';
+            return;
+        }
+
+        document.getElementById('trans_source').textContent = speechToTranslate;
+        document.getElementById('trans_status').textContent = 'Translating to English...';
+
+        try {
+            const resp = await fetch('/api/translate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text: speechToTranslate, source_lang: langChoice, target_lang: 'en' })
+            });
+            const data = await resp.json();
+            if (data.success && data.translated) {
+                document.getElementById('trans_result').textContent = data.translated;
+                document.getElementById('trans_status').textContent = 'Translation complete! Ready to use.';
+                document.getElementById('use_trans_btn').style.display = 'inline-block';
+            } else {
+                document.getElementById('trans_status').textContent = 'Error: ' + (data.error || 'Translation failed');
+            }
+        } catch(e) {
+            console.error("Translation request failed:", e);
+            document.getElementById('trans_status').textContent = 'Translation server error.';
+        }
+    };
+
+    transRecognition.onerror = function(e) {
+        transIsRecording = false;
+        btn.style.background = '#F3E5F5';
+        btn.innerHTML = '🎤';
+        console.error("Doctor speech recognition error:", e);
+        if (e.error !== 'no-speech') {
+            document.getElementById('trans_status').textContent = 'Mic status: ' + e.error;
+        } else {
+            document.getElementById('trans_status').textContent = 'No speech detected. Click 🎤 to try again.';
+        }
+    };
+
+    try {
+        transRecognition.start();
+        transIsRecording = true;
+    } catch(err) {
+        console.error("Could not start recognition:", err);
+        transIsRecording = false;
+        btn.style.background = '#F3E5F5';
+        btn.innerHTML = '🎤';
+    }
+}
+
+function useTranslationAsSymptoms() {
+    const englishText = document.getElementById('trans_result').textContent;
+    if (!englishText || englishText === '—') return;
+    document.getElementById('ai_symptom_input').value = englishText;
+    // Auto-trigger AI extraction
+    extractSymptoms();
+}
+
 </script>
 {% endblock %}
