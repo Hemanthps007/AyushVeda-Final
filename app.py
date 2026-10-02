@@ -2060,6 +2060,35 @@ def patient_chatbot():
     )
 
 
+@app.route('/api/tts')
+def api_tts():
+    """Text-to-speech audio proxy ensuring natural Kannada and Indian languages speak reliably on all browsers and devices."""
+    import urllib.request
+    import urllib.parse
+    from flask import Response
+
+    text = (request.args.get('text') or '').strip()
+    lang = (request.args.get('lang') or 'kn').strip().lower()
+    if not text:
+        return ('No text provided', 400)
+
+    # Clean and limit chunk size for Google TTS
+    chunk = text[:200]
+    encoded_text = urllib.parse.quote(chunk)
+    url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl={lang}&client=tw-ob&q={encoded_text}"
+    req = urllib.request.Request(
+        url,
+        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            audio_bytes = resp.read()
+            return Response(audio_bytes, mimetype='audio/mpeg')
+    except Exception as e:
+        print(f"[TTS Error] {e}")
+        return (f"TTS fetch error: {e}", 500)
+
+
 @app.route('/api/patient/chatbot', methods=['POST'])
 def api_patient_chatbot():
     if session.get('role') != 'patient' or not session.get('user_id'):
@@ -2069,6 +2098,13 @@ def api_patient_chatbot():
     user_message = (data.get('message') or '').strip()
     history = data.get('history') or []
     lang = data.get('lang', 'en')
+
+    # Auto-detect language if message contains Kannada or Hindi Unicode characters
+    import re
+    if re.search(r'[\u0c80-\u0cff]', user_message):
+        lang = 'kn'
+    elif re.search(r'[\u0900-\u097f]', user_message):
+        lang = 'hi'
 
     if not user_message:
         return jsonify({'success': False, 'error': 'Please enter a message.'}), 400
@@ -2153,9 +2189,9 @@ STRICT SAFETY AND CLINICAL RULES:
 
         lang_reminder = ""
         if lang == 'kn':
-            lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply completely in simple, easy-to-understand, fluent Kannada (ಕನ್ನಡ).]"
+            lang_reminder = "\n[CRITICAL MANDATORY INSTRUCTION: You MUST reply ENTIRELY in fluent, natural, and warm Kannada (ಕನ್ನಡ). Every single sentence, bullet point, and heading MUST be written in Kannada script. Do NOT reply in English.]"
         elif lang == 'hi':
-            lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply completely in simple, easy-to-understand, fluent Hindi (हिंदी).]"
+            lang_reminder = "\n[CRITICAL MANDATORY INSTRUCTION: You MUST reply ENTIRELY in fluent, natural, and warm Hindi (हिंदी). Every single sentence, bullet point, and heading MUST be written in Hindi Devanagari script. Do NOT reply in English.]"
         else:
             lang_reminder = "\n[MANDATORY LANGUAGE INSTRUCTION: Reply in simple, clear, and effective English.]"
 

@@ -535,6 +535,12 @@
         align-items: center;
     }
 
+    .msg-action-btn.speaking {
+        background: #DC2626 !important;
+        color: #FFFFFF !important;
+        border-color: #DC2626 !important;
+    }
+
 </style>
 {% endblock %}
 
@@ -690,6 +696,58 @@
     let autoSpeak = false;
     let speechRecognitionInstance = null;
     let isRecordingSpeech = false;
+    let currentAudioPlayer = null;
+    let currentSpeakingBtn = null;
+
+    const LANGUAGE_DATA = {
+        en: {
+            placeholder: "Ask AyushBot anything about Ayurvedic health, doshas, herbs, or diet...",
+            chips: [
+                { label: "🌿 Home remedies for acidity", prompt: "What are natural Ayurvedic home remedies for indigestion and acidity?" },
+                { label: "🔥 Balance Pitta Dosha", prompt: "How do I balance my Pitta dosha with foods and daily habits?" },
+                { label: "🥛 Golden Milk Benefits", prompt: "What are the benefits of drinking warm Turmeric Milk (Haldi Doodh) at bedtime?" },
+                { label: "☀️ Morning Dinacharya", prompt: "Give me a simple 5-step Ayurvedic Dinacharya (daily morning routine) for high energy" },
+                { label: "🧘 Pranayama for Sleep", prompt: "What gentle breathing exercises (Pranayama) help lower stress and improve sleep?" }
+            ]
+        },
+        kn: {
+            placeholder: "ಆಯುರ್ವೇದ ಆರೋಗ್ಯ, ಮನೆಮದ್ದುಗಳು ಅಥವಾ ಆಹಾರದ ಬಗ್ಗೆ ಆಯುಷ್‌ಬಾಟ್ ಅನ್ನು ಕೇಳಿ...",
+            chips: [
+                { label: "🌿 ಅಸಿಡಿಟಿ ಮತ್ತು ಅಜೀರ್ಣಕ್ಕೆ ಮನೆಮದ್ದು", prompt: "ಅಸಿಡಿಟಿ ಮತ್ತು ಅಜೀರ್ಣಕ್ಕೆ ನೈಸರ್ಗಿಕ ಆಯುರ್ವೇದ ಮನೆಮದ್ದುಗಳು ಯಾವುವು?" },
+                { label: "🔥 ಪಿತ್ತ ದೋಷ ಸಮತೋಲನ", prompt: "ಆಹಾರ ಮತ್ತು ದಿನಚರ್ಯ ಮೂಲಕ ಪಿತ್ತ ದೋಷವನ್ನು ಹೇಗೆ ಸಮತೋಲನದಲ್ಲಿಡುವುದು?" },
+                { label: "🥛 ಅರಿಶಿನ ಹಾಲಿನ ಪ್ರಯೋಜನಗಳು", prompt: "ರಾತ್ರಿ ಮಲಗುವ ಮುನ್ನ ಬಿಸಿ ಅರಿಶಿನ ಹಾಲು ಕುಡಿಯುವುದರಿಂದಾಗುವ ಆರೋಗ್ಯ ಪ್ರಯೋಜನಗಳೇನು?" },
+                { label: "☀️ ಆಯುರ್ವೇದ ಮುಂಜಾನೆ ದಿನಚರ್ಯ", prompt: "ಉತ್ತಮ ಶಕ್ತಿ ಮತ್ತು ಆರೋಗ್ಯಕ್ಕಾಗಿ 5 ಸರಳ ಹಂತಗಳ ಆಯುರ್ವೇದ ಮುಂಜಾನೆ ದಿನಚರ್ಯ ತಿಳಿಸಿ" },
+                { label: "🧘 ನಿದ್ರೆಗಾಗಿ ಪ್ರಾಣಾಯಾಮ", prompt: "ಒತ್ತಡ ಕಡಿಮೆ ಮಾಡಲು ಮತ್ತು ಉತ್ತಮ ನಿದ್ರೆಗಾಗಿ ಯಾವ ಪ್ರಾಣಾಯಾಮ ಅಭ್ಯಾಸ ಮಾಡಬೇಕು?" }
+            ]
+        },
+        hi: {
+            placeholder: "आयुर्वेदिक स्वास्थ्य, घरेलू उपचार या आहार के बारे में आयुषबॉट से पूछें...",
+            chips: [
+                { label: "🌿 एसिडिटी के घरेलू उपचार", prompt: "एसिडिटी और अपच के लिए प्राकृतिक आयुर्वेदिक घरेलू उपचार क्या हैं?" },
+                { label: "🔥 पित्त दोष का संतुलन", prompt: "आहार और जीवनशैली से पित्त दोष को कैसे संतुलित करें?" },
+                { label: "🥛 हल्दी दूध के फायदे", prompt: "रात को गर्म हल्दी दूध पीने के स्वास्थ्य लाभ क्या हैं?" },
+                { label: "☀️ आयुर्वेदिक दिनचर्या", prompt: "ऊर्जावान रहने के लिए 5 आसान चरणों की आयुर्वेदिक सुबह की दिनचर्या बताएं" },
+                { label: "🧘 नींद के लिए प्राणायाम", prompt: "तनाव कम करने और अच्छी नींद के लिए कौन सा प्राणायाम करें?" }
+            ]
+        }
+    };
+
+    function updateLanguageUI(lang) {
+        const langConfig = LANGUAGE_DATA[lang] || LANGUAGE_DATA.en;
+        const userInput = document.getElementById('user_input');
+        if (userInput) {
+            userInput.placeholder = langConfig.placeholder;
+        }
+
+        const chipsContainer = document.getElementById('chips_container');
+        if (chipsContainer && langConfig.chips) {
+            let html = '';
+            for (let chip of langConfig.chips) {
+                html += `<button type="button" class="starter-chip" onclick="sendQuickPrompt('${chip.prompt.replace(/'/g, "\\'")}')">${chip.label}</button>\n`;
+            }
+            chipsContainer.innerHTML = html;
+        }
+    }
 
     // Auto-scroll messages container
     function scrollToBottom() {
@@ -705,51 +763,197 @@
         textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     }
 
-    // Toggle Read-Aloud
-    function toggleAudioSpeech() {
-        autoSpeak = !autoSpeak;
-        const icon = document.getElementById('speech_icon');
-        const btn = document.getElementById('audio_toggle_btn');
-        if (autoSpeak) {
-            icon.innerText = '🔊';
-            btn.innerHTML = '<span id="speech_icon">🔊</span> Voice On';
-            btn.style.background = 'rgba(74, 222, 128, 0.25)';
-        } else {
-            icon.innerText = '🔇';
-            btn.innerHTML = '<span id="speech_icon">🔇</span> Voice Off';
-            btn.style.background = 'rgba(255, 255, 255, 0.12)';
+    // Stop all active voice output (both SpeechSynthesis and streaming audio)
+    function stopAllSpeech() {
+        if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
+        }
+        if (currentAudioPlayer) {
+            currentAudioPlayer.pause();
+            currentAudioPlayer.currentTime = 0;
+            currentAudioPlayer = null;
+        }
+        if (currentSpeakingBtn) {
+            currentSpeakingBtn.innerText = '🔊 Read Aloud';
+            currentSpeakingBtn.classList.remove('speaking');
+            currentSpeakingBtn = null;
         }
     }
 
-    // Speak text using SpeechSynthesis
-    function speakText(text) {
-        if (!('speechSynthesis' in window)) return;
-        window.speechSynthesis.cancel();
-        
-        // Clean markdown symbols for cleaner speech
-        const clean = text
+    // Toggle Read-Aloud
+    function toggleAudioSpeech() {
+        autoSpeak = !autoSpeak;
+        const btn = document.getElementById('audio_toggle_btn');
+        if (autoSpeak) {
+            btn.innerHTML = '<span id="speech_icon">🔊</span> Voice On';
+            btn.style.background = 'rgba(74, 222, 128, 0.25)';
+        } else {
+            btn.innerHTML = '<span id="speech_icon">🔇</span> Voice Off';
+            btn.style.background = 'rgba(255, 255, 255, 0.12)';
+            stopAllSpeech();
+        }
+    }
+
+    // Play streaming natural audio chunks for Kannada/Hindi when local OS voice is absent
+    function playStreamingTts(text, langCode, btn) {
+        // Break text by punctuation and line breaks into chunks <= 160 chars
+        const chunks = [];
+        const rawSentences = text.split(/(?<=[.!?।|\n])/);
+        let curr = '';
+
+        for (let s of rawSentences) {
+            s = s.trim();
+            if (!s) continue;
+            if ((curr + ' ' + s).length <= 160) {
+                curr = curr ? curr + ' ' + s : s;
+            } else {
+                if (curr) chunks.push(curr);
+                if (s.length <= 160) {
+                    curr = s;
+                } else {
+                    const words = s.split(/\s+/);
+                    curr = '';
+                    for (let w of words) {
+                        if ((curr + ' ' + w).length <= 160) {
+                            curr = curr ? curr + ' ' + w : w;
+                        } else {
+                            if (curr) chunks.push(curr);
+                            curr = w;
+                        }
+                    }
+                }
+            }
+        }
+        if (curr) chunks.push(curr);
+
+        if (chunks.length === 0) {
+            stopAllSpeech();
+            return;
+        }
+
+        let chunkIdx = 0;
+        function playNextChunk() {
+            if (chunkIdx >= chunks.length) {
+                stopAllSpeech();
+                return;
+            }
+            const chunkText = chunks[chunkIdx++];
+            const primaryUrl = `/api/tts?lang=${encodeURIComponent(langCode)}&text=${encodeURIComponent(chunkText)}`;
+            const fallbackUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(langCode)}&client=tw-ob&q=${encodeURIComponent(chunkText)}`;
+
+            const audio = new Audio(primaryUrl);
+            currentAudioPlayer = audio;
+
+            audio.onended = () => {
+                playNextChunk();
+            };
+
+            audio.onerror = () => {
+                const backupAudio = new Audio(fallbackUrl);
+                currentAudioPlayer = backupAudio;
+                backupAudio.onended = () => {
+                    playNextChunk();
+                };
+                backupAudio.onerror = () => {
+                    playNextChunk();
+                };
+                backupAudio.play().catch(e => {
+                    stopAllSpeech();
+                });
+            };
+
+            audio.play().catch(err => {
+                stopAllSpeech();
+            });
+        }
+
+        playNextChunk();
+    }
+
+    // Speak text using either native SpeechSynthesis or streaming TTS
+    function speakText(text, btn = null) {
+        if (btn && currentSpeakingBtn === btn) {
+            stopAllSpeech();
+            return;
+        }
+
+        stopAllSpeech();
+
+        if (!text) return;
+
+        // Clean markdown, links, emojis and bullet formatting
+        let clean = text
+            .replace(/https?:\/\/\S+/g, '')
             .replace(/[#*_`~>-]/g, ' ')
+            .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
             .replace(/\n+/g, '. ')
             .replace(/\s+/g, ' ')
             .trim();
 
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        
-        const langChoice = document.getElementById('language_select').value;
-        if (langChoice === 'kn') utterance.lang = 'kn-IN';
-        else if (langChoice === 'hi') utterance.lang = 'hi-IN';
-        else utterance.lang = 'en-US';
+        if (!clean) return;
 
-        window.speechSynthesis.speak(utterance);
+        const langChoice = document.getElementById('language_select').value;
+        const hasKn = /[\u0C80-\u0CFF]/.test(clean);
+        const hasHi = /[\u0900-\u097F]/.test(clean);
+
+        let targetLang = 'en-US';
+        let langCode = 'en';
+
+        if (hasKn || langChoice === 'kn') {
+            targetLang = 'kn-IN';
+            langCode = 'kn';
+        } else if (hasHi || langChoice === 'hi') {
+            targetLang = 'hi-IN';
+            langCode = 'hi';
+        }
+
+        if (btn) {
+            currentSpeakingBtn = btn;
+            btn.innerText = '⏹️ Stop Voice';
+            btn.classList.add('speaking');
+        }
+
+        // Check if browser native voice supports this language
+        let nativeVoice = null;
+        if ('speechSynthesis' in window) {
+            const voices = window.speechSynthesis.getVoices() || [];
+            if (langCode === 'kn') {
+                nativeVoice = voices.find(v => 
+                    (v.lang && (v.lang === 'kn-IN' || v.lang.toLowerCase().startsWith('kn'))) ||
+                    (v.name && v.name.toLowerCase().includes('kannada'))
+                );
+            } else if (langCode === 'hi') {
+                nativeVoice = voices.find(v => 
+                    (v.lang && (v.lang === 'hi-IN' || v.lang.toLowerCase().startsWith('hi'))) ||
+                    (v.name && v.name.toLowerCase().includes('hindi'))
+                );
+            } else {
+                nativeVoice = voices.find(v => v.lang && v.lang.startsWith('en'));
+            }
+        }
+
+        // If local system has an authentic native Kannada/Hindi voice, use SpeechSynthesis
+        if (nativeVoice) {
+            const utterance = new SpeechSynthesisUtterance(clean);
+            utterance.voice = nativeVoice;
+            utterance.lang = nativeVoice.lang;
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+            utterance.onend = () => { stopAllSpeech(); };
+            utterance.onerror = () => { stopAllSpeech(); };
+            window.speechSynthesis.speak(utterance);
+            return;
+        }
+
+        // When native Kannada voice is absent (typical on Windows/Vercel deployments):
+        // Stream authentic Kannada audio via /api/tts proxy!
+        playStreamingTts(clean, langCode, btn);
     }
 
     function speakBubbleText(btn) {
         const bubble = btn.closest('.msg-row').querySelector('.msg-bubble');
         if (bubble) {
-            speakText(bubble.innerText);
+            speakText(bubble.innerText, btn);
         }
     }
 
@@ -767,7 +971,7 @@
     function clearChatHistory() {
         if (confirm("Would you like to clear this conversation and start fresh?")) {
             chatHistory = [];
-            window.speechSynthesis.cancel();
+            stopAllSpeech();
             const msgBox = document.getElementById('chat_messages');
             msgBox.innerHTML = `
                 <div class="msg-row bot">
@@ -872,6 +1076,7 @@
         contentWrap.appendChild(bubble);
         contentWrap.appendChild(timeDiv);
 
+        let readBtn = null;
         if (role === 'bot') {
             const actionDiv = document.createElement('div');
             actionDiv.className = 'msg-actions';
@@ -879,6 +1084,7 @@
                 <button type="button" class="msg-action-btn" onclick="copyBubbleText(this)">📋 Copy</button>
                 <button type="button" class="msg-action-btn" onclick="speakBubbleText(this)">🔊 Read Aloud</button>
             `;
+            readBtn = actionDiv.querySelectorAll('.msg-action-btn')[1];
             contentWrap.appendChild(actionDiv);
         }
 
@@ -889,7 +1095,7 @@
         scrollToBottom();
 
         if (role === 'bot' && autoSpeak) {
-            speakText(rawContent);
+            speakText(rawContent, readBtn);
         }
     }
 
@@ -920,6 +1126,18 @@
         const text = input.value.trim();
         if (!text) return;
 
+        // Auto-detect language from input
+        let lang = document.getElementById('language_select').value;
+        if (/[\u0C80-\u0CFF]/.test(text)) {
+            lang = 'kn';
+            document.getElementById('language_select').value = 'kn';
+            updateLanguageUI('kn');
+        } else if (/[\u0900-\u097F]/.test(text)) {
+            lang = 'hi';
+            document.getElementById('language_select').value = 'hi';
+            updateLanguageUI('hi');
+        }
+
         // Display user message
         appendMessage('user', text);
         chatHistory.push({ role: 'user', text: text });
@@ -934,8 +1152,6 @@
         sendBtn.disabled = true;
         indicator.style.display = 'flex';
         scrollToBottom();
-
-        const lang = document.getElementById('language_select').value;
 
         try {
             const resp = await fetch('/api/patient/chatbot', {
@@ -956,12 +1172,22 @@
                 appendMessage('bot', data.reply);
                 chatHistory.push({ role: 'model', text: data.reply });
             } else {
-                const errMsg = data.error || 'Unable to connect to Gemini API. Please ensure your GEMINI_API_KEY is configured in .env.';
-                appendMessage('bot', `⚠️ **Ayurvedic Assistant Notice**\n\n${errMsg}\n\nPlease check your server configuration or try again in a few moments.`);
+                let errMsg = data.error || 'Unable to connect to Gemini API. Please ensure your GEMINI_API_KEY is configured in Vercel or .env.';
+                if (lang === 'kn') {
+                    appendMessage('bot', `⚠️ **ಆಯುಷ್‌ಬಾಟ್ ಸೂಚನೆ**\n\nಕ್ಷಮಿಸಿ, ಜೆಮಿನಿ ಎಐ ಸೇವೆಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸರ್ವರ್ ಅಥವಾ ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ.\n\n*ವಿವರ: ${errMsg}*`);
+                } else if (lang === 'hi') {
+                    appendMessage('bot', `⚠️ **आयुषबॉट सूचना**\n\nक्षमा करें, जेमिनी एआई सेवा से संपर्क करने में असमर्थ। कृपया सर्वर या इंटरनेट कनेक्शन की जांच करें।\n\n*विवरण: ${errMsg}*`);
+                } else {
+                    appendMessage('bot', `⚠️ **Ayurvedic Assistant Notice**\n\n${errMsg}\n\nPlease check your server configuration or try again in a few moments.`);
+                }
             }
         } catch (err) {
             console.error('AyushBot fetch error:', err);
-            appendMessage('bot', `⚠️ **Network Notice**: Unable to reach AyushVeda service. Please check your internet connection or server status.`);
+            if (lang === 'kn') {
+                appendMessage('bot', `⚠️ **ನೆಟ್‌ವರ್ಕ್ ಸೂಚನೆ**: ಆಯುಷ್‌ವೇದ ಸೇವೆಗೆ ಸಂಪರ್ಕಿಸಲು ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ.`);
+            } else {
+                appendMessage('bot', `⚠️ **Network Notice**: Unable to reach AyushVeda service. Please check your internet connection or server status.`);
+            }
         } finally {
             isWaitingForBot = false;
             sendBtn.disabled = false;
@@ -991,13 +1217,16 @@
             speechRecognitionInstance.onend = function() {
                 isRecordingSpeech = false;
                 const voiceBtn = document.getElementById('voice_btn');
-                voiceBtn.classList.remove('recording');
-                voiceBtn.innerHTML = '🎙️';
-                document.getElementById('voice_status_text').innerText = '';
+                if (voiceBtn) {
+                    voiceBtn.classList.remove('recording');
+                    voiceBtn.innerHTML = '🎙️';
+                }
+                const statusText = document.getElementById('voice_status_text');
+                if (statusText) statusText.innerText = '';
                 
                 // If text was spoken, auto-submit
                 const input = document.getElementById('user_input');
-                if (input.value.trim().length > 0) {
+                if (input && input.value.trim().length > 0) {
                     submitUserMessage();
                 }
             };
@@ -1006,9 +1235,12 @@
                 console.error('Speech recognition error:', event.error);
                 isRecordingSpeech = false;
                 const voiceBtn = document.getElementById('voice_btn');
-                voiceBtn.classList.remove('recording');
-                voiceBtn.innerHTML = '🎙️';
-                document.getElementById('voice_status_text').innerText = 'Mic error: ' + event.error;
+                if (voiceBtn) {
+                    voiceBtn.classList.remove('recording');
+                    voiceBtn.innerHTML = '🎙️';
+                }
+                const statusText = document.getElementById('voice_status_text');
+                if (statusText) statusText.innerText = 'Mic error: ' + event.error;
             };
         }
     }
@@ -1041,14 +1273,29 @@
             isRecordingSpeech = true;
             voiceBtn.classList.add('recording');
             voiceBtn.innerHTML = '⏹️';
-            statusText.innerText = 'Listening... Speak your health question now';
+            statusText.innerText = langChoice === 'kn' ? 'ಆಲಿಸಲಾಗುತ್ತಿದೆ... ನಿಮ್ಮ ಆರೋಗ್ಯ ಪ್ರಶ್ನೆಯನ್ನು ಮಾತನಾಡಿ' : 'Listening... Speak your health question now';
         } catch (e) {
             console.error(e);
         }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+            window.speechSynthesis.getVoices();
+        }
+
         initSpeechRecognition();
+
+        const langSelect = document.getElementById('language_select');
+        if (langSelect) {
+            langSelect.addEventListener('change', () => {
+                stopAllSpeech();
+                updateLanguageUI(langSelect.value);
+            });
+        }
 
         // Check if coming from AI Prediction "Ask AI" button
         const urlParams = new URLSearchParams(window.location.search);
@@ -1056,11 +1303,11 @@
         const autoDisease = urlParams.get('disease');
         const autoLang = urlParams.get('lang');
 
-        if (autoLang) {
-            const langSelect = document.getElementById('language_select');
-            if (langSelect && ['en', 'kn', 'hi'].includes(autoLang)) {
+        if (autoLang && ['en', 'kn', 'hi'].includes(autoLang)) {
+            if (langSelect) {
                 langSelect.value = autoLang;
             }
+            updateLanguageUI(autoLang);
         }
 
         if (autoPrompt || autoDisease) {
@@ -1082,7 +1329,8 @@
                 submitUserMessage();
             }, 350);
         } else {
-            document.getElementById('user_input').focus();
+            const input = document.getElementById('user_input');
+            if (input) input.focus();
         }
     });
 </script>
