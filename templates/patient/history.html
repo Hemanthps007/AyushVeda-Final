@@ -16,6 +16,35 @@
 
 {% block extra_css %}
 <style>
+    .page-tab-btn {
+        padding: 10px 22px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s;
+        background: #F0E8D8;
+        color: #4A3728;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .page-tab-btn.active {
+        background: #2D5016;
+        color: #fff;
+    }
+    .page-tab-btn.active .tab-counter {
+        background: rgba(255,255,255,0.25) !important;
+        color: #fff !important;
+    }
+    .tab-counter {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 700;
+    }
     .prescription-grid {
         display: grid;
         grid-template-columns: minmax(0,1fr);
@@ -37,67 +66,191 @@
 
 {% block content %}
 
-{% if prescriptions %}
-{% for pr in prescriptions %}
-<div class="card" style="margin-bottom:20px">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px">
-        <div>
-            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:6px">Diagnosis</div>
-            <h2 style="font-family:'Cormorant Garamond',serif;font-size:30px;color:#1A1208">{{ pr.predicted_disease }}</h2>
-            <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
-                <span class="badge badge-blue">Dr. {{ pr.doctor_name }}</span>
-                <span class="badge" style="background:#F0E8D8;color:#4A3728">{{ pr.specialization }}</span>
-                <span class="badge" style="background:#F0E8D8;color:#7A6558">{{ pr.created_at[:10] }}</span>
+<!-- Prescription Category Toggle Buttons -->
+<div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+    <button type="button" class="page-tab-btn active" id="btn_category_doctor" onclick="switchRxCategory('doctor', this)">
+        <span>👨‍⚕️ Doctor Prescribed</span>
+        <span class="tab-counter" style="background:#E2EDD8;color:#2D5016;">{{ doctor_prescriptions|length }}</span>
+    </button>
+    <button type="button" class="page-tab-btn" id="btn_category_patient" onclick="switchRxCategory('patient', this)">
+        <span>🤖 Patient Saved Prescriptions</span>
+        <span class="tab-counter" style="background:#FFE6D5;color:#E8611A;">{{ patient_prescriptions|length }}</span>
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- OPTION 1: DOCTOR PRESCRIBED PRESCRIPTIONS                     -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="section_doctor_rx">
+    {% if doctor_prescriptions %}
+    {% for pr in doctor_prescriptions %}
+    <div class="card" style="margin-bottom:20px; border-left:4px solid #2D5016;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px">
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span class="badge badge-green" style="font-size:11px;">👨‍⚕️ Doctor Prescribed</span>
+                    <span style="font-size:12px;color:#7A6558;">Official Consultation</span>
+                </div>
+                <h2 style="font-family:'Cormorant Garamond',serif;font-size:30px;color:#1A1208">{{ pr.predicted_disease }}</h2>
+                <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+                    <span class="badge badge-blue">Dr. {{ pr.doctor_name }}</span>
+                    {% if pr.specialization %}<span class="badge" style="background:#F0E8D8;color:#4A3728">{{ pr.specialization }}</span>{% endif %}
+                    <span class="badge" style="background:#F0E8D8;color:#7A6558">{{ pr.created_at[:10] }}</span>
+                </div>
+            </div>
+            <div style="flex-shrink:0;">
+                <form action="{{ url_for('patient_delete_history', pr_id=pr.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this treatment record?');" style="margin:0;">
+                    <button type="submit" class="btn btn-outline" style="color:#C62828; border-color:#FFCDD2; background:#FFF5F5; padding:6px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:6px;">
+                        🗑️ Delete Record
+                    </button>
+                </form>
             </div>
         </div>
-        <div style="flex-shrink:0;">
-            <form action="{{ url_for('patient_delete_history', pr_id=pr.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this treatment record?');" style="margin:0;">
-                <button type="submit" class="btn btn-outline" style="color:#C62828; border-color:#FFCDD2; background:#FFF5F5; padding:6px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:6px;">
-                    🗑️ Delete Record
-                </button>
-            </form>
-        </div>
-    </div>
 
-    <div class="prescription-grid">
-        <div style="background:#FBF7F0;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">🤒 Symptoms Reported</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.symptoms }}</div>
+        <div class="prescription-grid">
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">🤒 Symptoms Reported</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.symptoms }}</div>
+            </div>
+            <div style="background:#F1F8E9;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:8px"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Medicines Prescribed</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.medicines }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">💊 Dosage Instructions</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.dosage }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">⏱️ Duration</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.duration }}</div>
+            </div>
+            {% if pr.diet_advice %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🥗 Diet Advice</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.diet_advice }}</div>
+            </div>
+            {% endif %}
+            {% if pr.suggestions %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🧘 Doctor's Notes</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.suggestions }}</div>
+            </div>
+            {% endif %}
         </div>
-        <div style="background:#F1F8E9;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:8px"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Medicines</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.medicines }}</div>
-        </div>
-        <div style="background:#FBF7F0;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">💊 Dosage</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.dosage }}</div>
-        </div>
-        <div style="background:#FBF7F0;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">⏱️ Duration</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.duration }}</div>
-        </div>
-        {% if pr.diet_advice %}
-        <div style="background:#FFF3E0;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🥗 Diet Advice</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.diet_advice }}</div>
-        </div>
-        {% endif %}
-        {% if pr.suggestions %}
-        <div style="background:#FFF3E0;border-radius:10px;padding:16px">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🧘 Doctor's Notes</div>
-            <div style="font-size:13px;color:#4A3728">{{ pr.suggestions }}</div>
-        </div>
-        {% endif %}
     </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:70px 20px">
+        <div style="font-size:64px;margin-bottom:16px">👨‍⚕️</div>
+        <h2 style="font-size:24px;margin-bottom:10px">No doctor prescriptions yet</h2>
+        <p style="color:#7A6558;max-width:480px;margin:0 auto 20px;">Prescriptions given by your consulting doctor will be saved and displayed here.</p>
+        <a href="/patient/consult" class="btn btn-primary">📞 Consult Specialized Doctors</a>
+    </div>
+    {% endif %}
 </div>
-{% endfor %}
-{% else %}
-<div class="card" style="text-align:center;padding:80px">
-    <div style="font-size:80px;margin-bottom:20px"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
-    <h2 style="font-size:28px;margin-bottom:12px">No treatment history yet</h2>
-    <p style="color:#7A6558">Your doctor will add prescriptions after your consultation.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- OPTION 2: PATIENT SAVED PRESCRIPTIONS                         -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div id="section_patient_rx" style="display:none;">
+    {% if patient_prescriptions %}
+    {% for pr in patient_prescriptions %}
+    <div class="card" style="margin-bottom:20px; border-left:4px solid #E8611A;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:20px">
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <span class="badge badge-orange" style="font-size:11px;">🤖 Patient Saved</span>
+                    <span style="font-size:12px;color:#7A6558;">AI Disease Prediction Record</span>
+                </div>
+                <h2 style="font-family:'Cormorant Garamond',serif;font-size:30px;color:#1A1208">{{ pr.predicted_disease }}</h2>
+                <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+                    <span class="badge" style="background:#FFF3E0;color:#E8611A;font-weight:600;">Saved by Patient</span>
+                    <span class="badge" style="background:#F0E8D8;color:#7A6558">{{ pr.created_at[:10] }}</span>
+                </div>
+            </div>
+            <div style="flex-shrink:0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <a href="{{ url_for('patient_download_certificate', pr_id=pr.id) }}" class="btn" style="background:#2D5016; color:#ffffff; padding:7px 16px; font-size:13px; font-weight:600; border-radius:8px; display:flex; align-items:center; gap:6px; text-decoration:none; box-shadow:0 2px 6px rgba(45,80,22,0.25);" download>
+                    📥 Download Medical Certificate (PDF)
+                </a>
+                <form action="{{ url_for('patient_delete_history', pr_id=pr.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this saved prescription?');" style="margin:0;">
+                    <button type="submit" class="btn btn-outline" style="color:#C62828; border-color:#FFCDD2; background:#FFF5F5; padding:6px 14px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:6px;">
+                        🗑️ Delete Record
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="prescription-grid">
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">🤒 Symptoms Selected</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.symptoms }}</div>
+            </div>
+            <div style="background:#F1F8E9;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#4A7C22;margin-bottom:8px"><img src="/static/images/logo_icon.png" style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Suggested Medicines</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.medicines }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">💊 Dosage Guide</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.dosage }}</div>
+            </div>
+            <div style="background:#FBF7F0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7A6558;margin-bottom:8px">⏱️ Duration</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.duration }}</div>
+            </div>
+            {% if pr.diet_advice %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🥗 Diet Advice</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.diet_advice }}</div>
+            </div>
+            {% endif %}
+            {% if pr.suggestions %}
+            <div style="background:#FFF3E0;border-radius:10px;padding:16px">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#E8611A;margin-bottom:8px">🧘 Lifestyle & Notes</div>
+                <div style="font-size:13px;color:#4A3728">{{ pr.suggestions }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:70px 20px">
+        <div style="font-size:64px;margin-bottom:16px">🤖</div>
+        <h2 style="font-size:24px;margin-bottom:10px">No patient-saved prescriptions yet</h2>
+        <p style="color:#7A6558;max-width:480px;margin:0 auto 20px;">When you check symptoms using AI Disease Prediction, you can save the recommended prescription directly to this section.</p>
+        <a href="/patient/predict" class="btn btn-primary">🤖 Try AI Disease Prediction</a>
+    </div>
+    {% endif %}
 </div>
-{% endif %}
+
 {% endblock %}
 
+{% block extra_js %}
+<script>
+function switchRxCategory(category, btn) {
+    const secDoctor = document.getElementById('section_doctor_rx');
+    const secPatient = document.getElementById('section_patient_rx');
+    const btnDoctor = document.getElementById('btn_category_doctor');
+    const btnPatient = document.getElementById('btn_category_patient');
 
+    if (category === 'patient') {
+        secDoctor.style.display = 'none';
+        secPatient.style.display = 'block';
+        btnDoctor.classList.remove('active');
+        btnPatient.classList.add('active');
+    } else {
+        secDoctor.style.display = 'block';
+        secPatient.style.display = 'none';
+        btnDoctor.classList.add('active');
+        btnPatient.classList.remove('active');
+    }
+}
+
+// Auto-switch to patient tab if requested in URL
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'patient' || params.get('filter') === 'patient') {
+        switchRxCategory('patient', document.getElementById('btn_category_patient'));
+    }
+});
+</script>
+{% endblock %}

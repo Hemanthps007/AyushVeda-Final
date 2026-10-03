@@ -1,4 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
+import io
+import xml.sax.saxutils as saxutils
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import sqlite3
 import os
 import hashlib
@@ -119,6 +125,107 @@ DEMO_SPECIALISTS = [
 SPECIALIST_BY_DISEASE = {disease: {'name': name, 'specialization': specialty} for disease, name, specialty in DEMO_SPECIALISTS}
 for disease in sorted(model.classes_):
     SPECIALIST_BY_DISEASE.setdefault(disease.strip(), {'name': 'Dr. Priya Deshmukh', 'specialization': 'General Medicine'})
+
+# ── Disease Name Mapping & Medicine Lookup Helper ────────────────────────────
+DISEASE_NAME_MAP = {
+    'AIDS': 'HIV/AIDS',
+    'Allergy': 'Skin Allergy',
+    'Bronchial Asthma': 'Asthma',
+    'Chicken pox': 'Chickenpox',
+    'Dengue': 'Dengue Fever',
+    'Diabetes ': 'Diabetes',
+    'Diabetes': 'Diabetes',
+    'Dimorphic hemmorhoids(piles)': 'Hemorrhoids',
+    'Drug Reaction': 'Skin Allergy',
+    'GERD': 'Gastritis',
+    'Gastroenteritis': 'Gastritis',
+    'Hypertension ': 'Hypertension',
+    'Hyperthyroidism': 'Thyroid Disorder',
+    'Hypothyroidism': 'Thyroid Disorder',
+    'Hypoglycemia': 'Diabetes',
+    'Jaundice': 'Liver Disease',
+    'Chronic cholestasis': 'Liver Disease',
+    'Alcoholic hepatitis': 'Liver Disease',
+    'Osteoarthristis': 'Osteoarthritis',
+    'Peptic ulcer diseae': 'Peptic Ulcer',
+    'Typhoid': 'Typhoid Fever',
+    'Urinary tract infection': 'Urinary Tract Infection',
+    'hepatitis A': 'Hepatitis A',
+    'Hepatitis C': 'Hepatitis B',
+    'Hepatitis D': 'Hepatitis B',
+    'Hepatitis E': 'Hepatitis B',
+    '(vertigo) Paroymsal  Positional Vertigo': 'Migraine',
+    'Paralysis (brain hemorrhage)': 'Hypertension',
+    'Cervical spondylosis': 'Arthritis',
+    'Heart attack': 'Hypertension',
+    'Varicose veins': 'Varicose-vein-type condition',
+    'Varicose-vein-type condition': 'Varicose-vein-type condition',
+    'Liver Disease / Hepatitis': 'Liver Disease',
+    'Fungal infection': 'Skin Allergy',
+    'Impetigo': 'Skin Allergy',
+}
+
+def get_medicine_info_for_disease(prediction):
+    display_name = str(prediction).strip()
+    medicine_lookup = DISEASE_NAME_MAP.get(prediction, display_name).strip()
+
+    # Exact match -> Case-insensitive stripped match -> Substring match
+    med_row = medicines_df[medicines_df['Disease'] == medicine_lookup] if not medicines_df.empty else pd.DataFrame()
+    if med_row.empty and not medicines_df.empty:
+        med_mask = medicines_df['Disease'].astype(str).str.strip().str.lower() == medicine_lookup.lower()
+        med_row = medicines_df[med_mask]
+    if med_row.empty and not medicines_df.empty:
+        sub_mask = medicines_df['Disease'].astype(str).str.strip().str.lower().str.contains(medicine_lookup.lower()[:5], na=False)
+        med_row = medicines_df[sub_mask]
+
+    medicine_info = {}
+    if not med_row.empty:
+        medicine_info = {
+            'medicine': str(med_row.iloc[0]['Medicine']),
+            'dosage': str(med_row.iloc[0]['Dosage']),
+            'duration': str(med_row.iloc[0]['Duration']),
+            'diet_advice': str(med_row.iloc[0]['Diet_Advice']),
+            'lifestyle': str(med_row.iloc[0]['Lifestyle'])
+        }
+    else:
+        medicine_info = {
+            'medicine': f'Standard Ayurvedic Formulation for {display_name}',
+            'dosage': '1-2 tablets twice daily after meals with warm water',
+            'duration': '14-21 days',
+            'diet_advice': 'Light, freshly cooked meals; avoid oily, heavy and processed foods.',
+            'lifestyle': 'Adequate hydration, proper rest, and stress reduction.'
+        }
+
+    allo_row = pd.DataFrame()
+    if not allopathic_df.empty:
+        allo_row = allopathic_df[allopathic_df['Disease'] == medicine_lookup]
+        if allo_row.empty:
+            allo_mask = allopathic_df['Disease'].astype(str).str.strip().str.lower() == medicine_lookup.lower()
+            allo_row = allopathic_df[allo_mask]
+        if allo_row.empty:
+            sub_allo = allopathic_df['Disease'].astype(str).str.strip().str.lower().str.contains(medicine_lookup.lower()[:5], na=False)
+            allo_row = allopathic_df[sub_allo]
+
+    allo_info = {}
+    if not allo_row.empty:
+        allo_info = {
+            'medicine': str(allo_row.iloc[0]['Medicine']),
+            'dosage': str(allo_row.iloc[0]['Dosage']),
+            'duration': str(allo_row.iloc[0]['Duration']),
+            'diet_advice': str(allo_row.iloc[0]['Diet_Advice']),
+            'lifestyle': str(allo_row.iloc[0]['Lifestyle'])
+        }
+    else:
+        allo_info = {
+            'medicine': f'Standard Symptomatic Therapy for {display_name}',
+            'dosage': 'As directed by physician',
+            'duration': '5-7 days',
+            'diet_advice': 'Nutritious balanced diet and oral hydration.',
+            'lifestyle': 'Rest and monitor symptoms closely.'
+        }
+
+    return display_name, medicine_info, allo_info
+
 
 # ── Synonym Map for robust keyword fallback (works without Gemini API) ────────
 SYMPTOM_SYNONYMS = {
@@ -428,6 +535,7 @@ def init_db():
             duration TEXT,
             suggestions TEXT,
             diet_advice TEXT,
+            saved_by TEXT DEFAULT 'doctor',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (patient_id) REFERENCES patients(id),
             FOREIGN KEY (doctor_id) REFERENCES doctors(id)
@@ -443,6 +551,10 @@ def init_db():
             FOREIGN KEY (patient_id) REFERENCES patients(id)
         );
     ''')
+    try:
+        c.execute("ALTER TABLE prescriptions ADD COLUMN saved_by TEXT DEFAULT 'doctor'")
+    except Exception:
+        pass
     # Seed admin
     admin_pw = hashlib.sha256('admin123'.encode()).hexdigest()
     c.execute("INSERT OR IGNORE INTO admins (name, email, password, phone) VALUES (?,?,?,?)",
@@ -760,7 +872,7 @@ def admin_view_patient(id):
     conn = get_db()
     patient = conn.execute("SELECT p.*, d.name as doctor_name FROM patients p LEFT JOIN doctors d ON p.doctor_id=d.id WHERE p.id=?", (id,)).fetchone()
     prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC", (id,)
+        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC", (id,)
     ).fetchall()
     payments = conn.execute("SELECT * FROM payments WHERE patient_id=? ORDER BY created_at DESC", (id,)).fetchall()
     conn.close()
@@ -921,7 +1033,7 @@ def doctor_predict_page():
         ).fetchone()
         if patient:
             prescriptions = conn.execute(
-                "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+                "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
                 (patient_id,)
             ).fetchall()
             doctor = conn.execute("SELECT * FROM doctors WHERE id=?", (session['user_id'],)).fetchone()
@@ -947,7 +1059,7 @@ def doctor_view_patient(id):
     conn = get_db()
     patient = conn.execute("SELECT * FROM patients WHERE id=?", (id,)).fetchone()
     prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
         (id,)
     ).fetchall()
     doctor = conn.execute("SELECT * FROM doctors WHERE id=?", (session['user_id'],)).fetchone()
@@ -1083,72 +1195,7 @@ def doctor_predict():
     top_confidence = round(display_confidence, 1)
 
     
-    # Map Kaggle dataset disease names → our medicine database names
-    DISEASE_NAME_MAP = {
-        'AIDS': 'HIV/AIDS',
-        'Allergy': 'Skin Allergy',
-        'Bronchial Asthma': 'Asthma',
-        'Chicken pox': 'Chickenpox',
-        'Dengue': 'Dengue Fever',
-        'Diabetes ': 'Diabetes',
-        'Diabetes': 'Diabetes',
-        'Dimorphic hemmorhoids(piles)': 'Hemorrhoids',
-        'Drug Reaction': 'Skin Allergy',
-        'GERD': 'Gastritis',
-        'Gastroenteritis': 'Gastritis',
-        'Hypertension ': 'Hypertension',
-        'Hyperthyroidism': 'Thyroid Disorder',
-        'Hypothyroidism': 'Thyroid Disorder',
-        'Hypoglycemia': 'Diabetes',
-        'Jaundice': 'Liver Disease',
-        'Chronic cholestasis': 'Liver Disease',
-        'Alcoholic hepatitis': 'Liver Disease',
-        'Osteoarthristis': 'Osteoarthritis',
-        'Peptic ulcer diseae': 'Peptic Ulcer',
-        'Typhoid': 'Typhoid Fever',
-        'Urinary tract infection': 'Urinary Tract Infection',
-        'hepatitis A': 'Hepatitis A',
-        'Hepatitis C': 'Hepatitis B',
-        'Hepatitis D': 'Hepatitis B',
-        'Hepatitis E': 'Hepatitis B',
-        '(vertigo) Paroymsal  Positional Vertigo': 'Migraine',
-        'Paralysis (brain hemorrhage)': 'Hypertension',
-        'Cervical spondylosis': 'Arthritis',
-        'Heart attack': 'Hypertension',
-        'Varicose veins': 'Varicose-vein-type condition',
-        'Varicose-vein-type condition': 'Varicose-vein-type condition',
-        'Liver Disease / Hepatitis': 'Liver Disease',
-        'Fungal infection': 'Skin Allergy',
-        'Impetigo': 'Skin Allergy',
-    }
-    
-    # Clean display name (remove trailing spaces, fix casing)
-    display_name = prediction.strip()
-    # Use mapped name for medicine lookup
-    medicine_lookup = DISEASE_NAME_MAP.get(prediction, display_name)
-    
-    # Fetch Ayurvedic medicines using mapped name
-    med_row = medicines_df[medicines_df['Disease'] == medicine_lookup]
-    medicine_info = {}
-    if not med_row.empty:
-        medicine_info = {
-            'medicine': med_row.iloc[0]['Medicine'],
-            'dosage': med_row.iloc[0]['Dosage'],
-            'duration': med_row.iloc[0]['Duration'],
-            'diet_advice': med_row.iloc[0]['Diet_Advice'],
-            'lifestyle': med_row.iloc[0]['Lifestyle']
-        }
-    # Fetch Allopathic using mapped name
-    allo_row = allopathic_df.loc[allopathic_df['Disease'] == medicine_lookup] if not allopathic_df.empty else pd.DataFrame()
-    allo_info = {}
-    if not allo_row.empty:
-        allo_info = {
-            'medicine': allo_row.iloc[0]['Medicine'],
-            'dosage': allo_row.iloc[0]['Dosage'],
-            'duration': allo_row.iloc[0]['Duration'],
-            'diet_advice': allo_row.iloc[0]['Diet_Advice'],
-            'lifestyle': allo_row.iloc[0]['Lifestyle']
-        }
+    display_name, medicine_info, allo_info = get_medicine_info_for_disease(prediction)
         
     ai_safety_warning = ""
     safety_warnings = []
@@ -1192,15 +1239,15 @@ def doctor_predict():
 def doctor_prescribe(patient_id):
     conn = get_db()
     conn.execute(
-        "INSERT INTO prescriptions (patient_id, doctor_id, symptoms, predicted_disease, medicines, dosage, duration, suggestions, diet_advice) VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO prescriptions (patient_id, doctor_id, symptoms, predicted_disease, medicines, dosage, duration, suggestions, diet_advice, saved_by) VALUES (?,?,?,?,?,?,?,?,?, 'doctor')",
         (patient_id, session['user_id'],
-         request.form['symptoms'],
-         request.form['predicted_disease'],
-         request.form['medicines'],
-         request.form['dosage'],
-         request.form['duration'],
-         request.form['suggestions'],
-         request.form['diet_advice'])
+         request.form.get('symptoms', ''),
+         request.form.get('predicted_disease', ''),
+         request.form.get('medicines', ''),
+         request.form.get('dosage', ''),
+         request.form.get('duration', ''),
+         request.form.get('suggestions', ''),
+         request.form.get('diet_advice', ''))
     )
     conn.commit()
     conn.close()
@@ -1339,7 +1386,7 @@ def patient_dashboard():
         (session['user_id'],)
     ).fetchone()
     prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
         (session['user_id'],)
     ).fetchall()
     appointments = conn.execute(
@@ -1448,11 +1495,20 @@ def doctor_consultation_request(request_id, action):
 def patient_history():
     conn = get_db()
     prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name, d.specialization FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+        "SELECT pr.*, d.name as doctor_name, d.specialization FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
         (session['user_id'],)
     ).fetchall()
     conn.close()
-    return render_template('patient/history.html', prescriptions=prescriptions)
+
+    doctor_prescriptions = [p for p in prescriptions if (p['saved_by'] != 'patient' and p['doctor_name'])]
+    patient_prescriptions = [p for p in prescriptions if (p['saved_by'] == 'patient' or not p['doctor_name'])]
+
+    return render_template(
+        'patient/history.html',
+        prescriptions=prescriptions,
+        doctor_prescriptions=doctor_prescriptions,
+        patient_prescriptions=patient_prescriptions
+    )
 
 @app.route('/patient/history/delete/<int:pr_id>', methods=['POST'])
 @login_required('patient')
@@ -1464,17 +1520,458 @@ def patient_delete_history(pr_id):
     flash('Treatment record deleted successfully.', 'success')
     return redirect(url_for('patient_history'))
 
+def generate_medical_certificate_pdf(patient, pr):
+    buf = io.BytesIO()
+
+    page_width, page_height = A4
+    margin = 36
+    usable_width = page_width - 2 * margin
+
+    def draw_decorations(canvas, doc):
+        canvas.saveState()
+        # Primary outer border
+        canvas.setStrokeColor(colors.HexColor('#2D5016'))
+        canvas.setLineWidth(2)
+        canvas.rect(18, 18, page_width - 36, page_height - 36)
+        
+        # Subtle inner border
+        canvas.setStrokeColor(colors.HexColor('#8FA876'))
+        canvas.setLineWidth(0.75)
+        canvas.rect(22, 22, page_width - 44, page_height - 44)
+
+        # Header accent bar
+        canvas.setFillColor(colors.HexColor('#2D5016'))
+        canvas.rect(22, page_height - 30, page_width - 44, 8, fill=1, stroke=0)
+
+        # Footer accent bar
+        canvas.setFillColor(colors.HexColor('#2D5016'))
+        canvas.rect(22, 22, page_width - 44, 8, fill=1, stroke=0)
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=30,
+        bottomMargin=30
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        'CertOrgTitle',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor('#2D5016'),
+        alignment=1
+    )
+    subtitle_style = ParagraphStyle(
+        'CertOrgSubtitle',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#5D4037'),
+        alignment=1
+    )
+    cert_badge_style = ParagraphStyle(
+        'CertBadge',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor('#FFFFFF'),
+        alignment=1
+    )
+    subcert_style = ParagraphStyle(
+        'SubCertBadge',
+        parent=styles['Normal'],
+        fontName='Helvetica-Oblique',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#E2EDD8'),
+        alignment=1
+    )
+    section_head_style = ParagraphStyle(
+        'SecHead',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#2D5016')
+    )
+    field_label_style = ParagraphStyle(
+        'FieldLabel',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor('#7A6558')
+    )
+    field_value_style = ParagraphStyle(
+        'FieldValue',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#1A1208')
+    )
+    field_value_bold = ParagraphStyle(
+        'FieldValueBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        leading=12,
+        textColor=colors.HexColor('#2D5016')
+    )
+    cert_text_style = ParagraphStyle(
+        'CertText',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.HexColor('#33261D'),
+        alignment=4
+    )
+    footer_text_style = ParagraphStyle(
+        'FooterText',
+        parent=styles['Normal'],
+        fontName='Helvetica-Oblique',
+        fontSize=7,
+        leading=9.5,
+        textColor=colors.HexColor('#7A6558'),
+        alignment=1
+    )
+
+    story = []
+    story.append(Spacer(1, 4))
+
+    # Header Org
+    story.append(Paragraph('AYUSHVEDA HEALTHCARE SYSTEM', title_style))
+    story.append(Spacer(1, 2))
+    story.append(Paragraph('Center for AI-Driven Clinical Assessment, Ayurvedic Medicine &amp; Health Analytics', subtitle_style))
+    story.append(Paragraph('Official Digital Medical Certification &amp; Health Records Department', subtitle_style))
+    story.append(Spacer(1, 6))
+
+    # Certificate Banner
+    banner_cell = [
+        Paragraph('MEDICAL &amp; HEALTH ASSESSMENT CERTIFICATE', cert_badge_style),
+        Paragraph('Verified Clinical Record &amp; Prescription Documentation', subcert_style)
+    ]
+    banner_table = Table([[banner_cell]], colWidths=[usable_width])
+    banner_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#2D5016')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    story.append(banner_table)
+    story.append(Spacer(1, 8))
+
+    def p_esc(val, default='N/A'):
+        if val is None or str(val).strip() == '':
+            return default
+        return saxutils.escape(str(val).strip())
+
+    pr_id = pr.get('id', 1)
+    cert_id = f"AYUSH-MC-{pr_id:05d}"
+    created_at_val = str(pr.get('created_at') or '')[:10]
+    issue_date = created_at_val if created_at_val else datetime.now().strftime('%Y-%m-%d')
+    
+    is_patient_ai = (pr.get('saved_by') == 'patient' or not pr.get('doctor_name'))
+    source_type = 'AI Clinical Disease Prediction' if is_patient_ai else f"Dr. {p_esc(pr.get('doctor_name'))}"
+
+    meta_data = [
+        [
+            Paragraph(f'<b>Certificate No:</b> {cert_id}', field_value_style),
+            Paragraph(f'<b>Date Issued:</b> {issue_date}', field_value_style),
+            Paragraph(f'<b>Assessment Mode:</b> {source_type}', field_value_style)
+        ]
+    ]
+    meta_table = Table(meta_data, colWidths=[usable_width*0.33, usable_width*0.27, usable_width*0.40])
+    meta_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F4F8F1')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#D0DFC5')),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 8))
+
+    p_name = p_esc(patient.get('name'), 'Patient')
+    p_age = f"{patient.get('age')} Yrs" if patient.get('age') else 'N/A'
+    p_gender = p_esc(patient.get('gender'), 'N/A')
+    p_blood = p_esc(patient.get('blood_group'), 'N/A')
+    p_phone = p_esc(patient.get('phone'), 'N/A')
+    p_addr = p_esc(patient.get('address'), 'N/A')
+
+    patient_grid = [
+        [
+            Paragraph('Patient Name:', field_label_style),
+            Paragraph(p_name, field_value_bold),
+            Paragraph('Patient ID:', field_label_style),
+            Paragraph(f"PAT-{patient.get('id', 1):04d}", field_value_style)
+        ],
+        [
+            Paragraph('Age / Gender:', field_label_style),
+            Paragraph(f"{p_age} / {p_gender}", field_value_style),
+            Paragraph('Blood Group:', field_label_style),
+            Paragraph(p_blood, field_value_style)
+        ],
+        [
+            Paragraph('Contact Phone:', field_label_style),
+            Paragraph(p_phone, field_value_style),
+            Paragraph('Residential City:', field_label_style),
+            Paragraph(p_addr, field_value_style)
+        ]
+    ]
+    p_table = Table(patient_grid, colWidths=[usable_width*0.18, usable_width*0.35, usable_width*0.18, usable_width*0.29])
+    p_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFFFF')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E0D8CE')),
+        ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#F0EAE1')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    
+    story.append(Paragraph('PATIENT DEMOGRAPHIC &amp; HEALTH PROFILE', section_head_style))
+    story.append(Spacer(1, 3))
+    story.append(p_table)
+    story.append(Spacer(1, 8))
+
+    disease = p_esc(pr.get('predicted_disease'), 'Undiagnosed Condition')
+    symptoms = p_esc(pr.get('symptoms'), 'None reported')
+
+    diag_grid = [
+        [
+            Paragraph('Clinical Diagnosis / Condition:', field_label_style),
+            Paragraph(f"<b>{disease}</b>", field_value_bold)
+        ],
+        [
+            Paragraph('Symptoms Reported &amp; Evaluated:', field_label_style),
+            Paragraph(symptoms, field_value_style)
+        ],
+        [
+            Paragraph('Evaluation Framework:', field_label_style),
+            Paragraph('AyushVeda Intelligent Disease Classifier &amp; Ayurvedic Pharmacopoeia Matrix', field_value_style)
+        ]
+    ]
+    d_table = Table(diag_grid, colWidths=[usable_width*0.30, usable_width*0.70])
+    d_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FBF7F0')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E0D8CE')),
+        ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#F0EAE1')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(Paragraph('CLINICAL ASSESSMENT &amp; DIAGNOSTIC FINDINGS', section_head_style))
+    story.append(Spacer(1, 3))
+    story.append(d_table)
+    story.append(Spacer(1, 8))
+
+    meds = p_esc(pr.get('medicines'), 'As advised')
+    dosage = p_esc(pr.get('dosage'), 'Standard regimen')
+    duration = p_esc(pr.get('duration'), 'As indicated')
+
+    rx_grid = [
+        [
+            Paragraph('Prescribed Medicines:', field_label_style),
+            Paragraph(f"<b>{meds}</b>", field_value_style)
+        ],
+        [
+            Paragraph('Dosage &amp; Instructions:', field_label_style),
+            Paragraph(dosage, field_value_style)
+        ],
+        [
+            Paragraph('Recommended Duration / Rest:', field_label_style),
+            Paragraph(f"<b>{duration}</b>", field_value_style)
+        ]
+    ]
+    if pr.get('diet_advice'):
+        rx_grid.append([
+            Paragraph('Dietary Advisory:', field_label_style),
+            Paragraph(p_esc(pr.get('diet_advice')), field_value_style)
+        ])
+    if pr.get('suggestions'):
+        rx_grid.append([
+            Paragraph('Lifestyle / Health Advice:', field_label_style),
+            Paragraph(p_esc(pr.get('suggestions')), field_value_style)
+        ])
+
+    rx_table = Table(rx_grid, colWidths=[usable_width*0.30, usable_width*0.70])
+    rx_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFFFF')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#E0D8CE')),
+        ('INNERGRID', (0,0), (-1,-1), 0.3, colors.HexColor('#F0EAE1')),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(Paragraph('RECOMMENDED THERAPEUTIC REGIMEN &amp; CARE INSTRUCTIONS', section_head_style))
+    story.append(Spacer(1, 3))
+    story.append(rx_table)
+    story.append(Spacer(1, 8))
+
+    cert_statement = (
+        f"This is to certify that <b>{p_name}</b> (Patient ID: <b>PAT-{patient.get('id', 1):04d}</b>) has undergone clinical health assessment "
+        f"and symptom evaluation through the AyushVeda Healthcare Platform. Based on reported clinical indicators, the patient was assessed with "
+        f"<b>{disease}</b> and has been advised the therapeutic regimen and lifestyle care recorded herein. "
+        f"The patient is recommended compliance with the prescribed medications and adequate rest for <b>{duration}</b>."
+    )
+    cert_box = Table([[Paragraph(cert_statement, cert_text_style)]], colWidths=[usable_width])
+    cert_box.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F6F9F3')),
+        ('BOX', (0,0), (-1,-1), 0.75, colors.HexColor('#B8D5A3')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+    ]))
+    story.append(Paragraph('OFFICIAL MEDICAL DECLARATION &amp; CERTIFICATION', section_head_style))
+    story.append(Spacer(1, 3))
+    story.append(cert_box)
+    story.append(Spacer(1, 9))
+
+    doctor_info = f"Dr. {p_esc(pr.get('doctor_name'))}" if pr.get('doctor_name') else "AyushVeda Clinical Health Informatics Board"
+    doctor_sub = f"{p_esc(pr.get('specialization', ''))} ({p_esc(pr.get('qualification', ''))})".strip() if pr.get('doctor_name') else "Ministry of AYUSH Framework Aligned"
+    
+    stamp_cell = [
+        Paragraph('<b>DIGITAL HEALTH AUTHENTICATION</b>', field_label_style),
+        Paragraph('AyushVeda Certified Medical Record', field_value_style),
+        Paragraph(f'Ref: {cert_id}', field_value_style),
+        Paragraph('Status: <b>AUTHENTIC &amp; ACTIVE</b>', field_value_bold)
+    ]
+    sign_cell = [
+        Paragraph('<b>AUTHORIZED MEDICAL SIGNATURE</b>', field_label_style),
+        Spacer(1, 10),
+        Paragraph('<b>Digitally Verified &amp; Approved</b>', field_value_bold),
+        Paragraph(doctor_info, field_value_style),
+        Paragraph(doctor_sub, field_value_style)
+    ]
+    sig_table = Table([[stamp_cell, sign_cell]], colWidths=[usable_width*0.50, usable_width*0.50])
+    sig_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FCFAF7')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#D8CEBF')),
+        ('LINEBEFORE', (1,0), (1,-1), 0.5, colors.HexColor('#D8CEBF')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    story.append(sig_table)
+    story.append(Spacer(1, 8))
+
+    story.append(Paragraph(
+        'Disclaimer: This medical certificate is digitally generated by AyushVeda Healthcare Platform based on patient symptom assessment and AI clinical diagnostic models. '
+        'For official hospital leave, insurance, or legal claims, please corroborate with a licensed registered medical practitioner.',
+        footer_text_style
+    ))
+
+    doc.build(story, onFirstPage=draw_decorations, onLaterPages=draw_decorations)
+    return buf.getvalue()
+
+@app.route('/patient/certificate/<int:pr_id>')
+@app.route('/patient/certificate/<int:pr_id>/download')
+@login_required('patient')
+def patient_download_certificate(pr_id):
+    patient_id = session['user_id']
+    conn = get_db()
+    prescription = conn.execute(
+        "SELECT pr.*, d.name as doctor_name, d.specialization, d.qualification "
+        "FROM prescriptions pr "
+        "LEFT JOIN doctors d ON pr.doctor_id = d.id "
+        "WHERE pr.id = ? AND pr.patient_id = ?",
+        (pr_id, patient_id)
+    ).fetchone()
+    patient = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conn.close()
+
+    if not prescription or not patient:
+        flash('Prescription record not found.', 'error')
+        return redirect(url_for('patient_history'))
+
+    if prescription['saved_by'] != 'patient' and prescription['doctor_name']:
+        flash('Medical certificates are available for AI prediction records.', 'error')
+        return redirect(url_for('patient_history'))
+
+    pdf_bytes = generate_medical_certificate_pdf(dict(patient), dict(prescription))
+
+    disease_slug = "".join([c if c.isalnum() else "_" for c in (prescription['predicted_disease'] or 'Assessment')]).strip("_")
+    filename = f"Medical_Certificate_{disease_slug}_{pr_id}.pdf"
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/patient/save_prescription', methods=['POST'])
+@login_required('patient')
+def patient_save_prescription():
+    patient_id = session['user_id']
+    symptoms = request.form.get('symptoms', '').strip()
+    predicted_disease = request.form.get('predicted_disease', '').strip()
+    medicines = request.form.get('medicines', '').strip()
+    dosage = request.form.get('dosage', '').strip()
+    duration = request.form.get('duration', '').strip()
+    suggestions = request.form.get('suggestions', '').strip()
+    diet_advice = request.form.get('diet_advice', '').strip()
+
+    if not predicted_disease or not medicines:
+        flash('Cannot save prescription without disease and medicines.', 'error')
+        return redirect(url_for('patient_predict_page'))
+
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO prescriptions 
+           (patient_id, doctor_id, symptoms, predicted_disease, medicines, dosage, duration, suggestions, diet_advice, saved_by) 
+           VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, 'patient')""",
+        (patient_id, symptoms, predicted_disease, medicines, dosage, duration, suggestions, diet_advice)
+    )
+    conn.commit()
+    conn.close()
+    flash('Prescription saved successfully to your Treatment History!', 'success')
+    return redirect(url_for('patient_history', tab='patient'))
+
 @app.route('/patient/predict')
 @login_required('patient')
 def patient_predict_page():
     conn = get_db()
     patient = conn.execute("SELECT * FROM patients WHERE id=?", (session['user_id'],)).fetchone()
     prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name, d.specialization FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
+        "SELECT pr.*, d.name as doctor_name, d.specialization FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC",
         (session['user_id'],)
     ).fetchall()
     conn.close()
-    return render_template('patient/predict.html', patient=patient, prescriptions=prescriptions, symptoms_list=symptoms_list)
+
+    doctor_prescriptions = [p for p in prescriptions if (p['saved_by'] != 'patient' and p['doctor_name'])]
+    patient_prescriptions = [p for p in prescriptions if (p['saved_by'] == 'patient' or not p['doctor_name'])]
+
+    return render_template(
+        'patient/predict.html',
+        patient=patient,
+        prescriptions=prescriptions,
+        doctor_prescriptions=doctor_prescriptions,
+        patient_prescriptions=patient_prescriptions,
+        symptoms_list=symptoms_list
+    )
 
 @app.route('/api/patient_extract_symptoms', methods=['POST'])
 @login_required('patient')
@@ -1548,51 +2045,7 @@ def patient_predict_api():
 
     top_confidence = round(display_confidence, 1)
 
-    DISEASE_NAME_MAP = {
-        'AIDS': 'HIV/AIDS', 'Allergy': 'Skin Allergy', 'Bronchial Asthma': 'Asthma',
-        'Chicken pox': 'Chickenpox', 'Dengue': 'Dengue Fever', 'Diabetes ': 'Diabetes',
-        'Diabetes': 'Diabetes', 'Dimorphic hemmorhoids(piles)': 'Hemorrhoids',
-        'Drug Reaction': 'Skin Allergy', 'GERD': 'Gastritis', 'Gastroenteritis': 'Gastritis',
-        'Hypertension ': 'Hypertension', 'Hyperthyroidism': 'Thyroid Disorder',
-        'Hypothyroidism': 'Thyroid Disorder', 'Hypoglycemia': 'Diabetes',
-        'Jaundice': 'Liver Disease', 'Chronic cholestasis': 'Liver Disease',
-        'Alcoholic hepatitis': 'Liver Disease', 'Osteoarthristis': 'Osteoarthritis',
-        'Peptic ulcer diseae': 'Peptic Ulcer', 'Typhoid': 'Typhoid Fever',
-        'Urinary tract infection': 'Urinary Tract Infection',
-        'hepatitis A': 'Hepatitis A', 'Hepatitis C': 'Hepatitis B',
-        'Hepatitis D': 'Hepatitis B', 'Hepatitis E': 'Hepatitis B',
-        '(vertigo) Paroymsal  Positional Vertigo': 'Migraine',
-        'Paralysis (brain hemorrhage)': 'Hypertension', 'Cervical spondylosis': 'Arthritis',
-        'Heart attack': 'Hypertension', 'Varicose veins': 'Varicose-vein-type condition',
-        'Varicose-vein-type condition': 'Varicose-vein-type condition',
-        'Liver Disease / Hepatitis': 'Liver Disease',
-        'Fungal infection': 'Skin Allergy', 'Impetigo': 'Skin Allergy',
-    }
-
-    display_name = prediction.strip()
-    medicine_lookup = DISEASE_NAME_MAP.get(prediction, display_name)
-
-    med_row = medicines_df[medicines_df['Disease'] == medicine_lookup]
-    medicine_info = {}
-    if not med_row.empty:
-        medicine_info = {
-            'medicine': med_row.iloc[0]['Medicine'],
-            'dosage': med_row.iloc[0]['Dosage'],
-            'duration': med_row.iloc[0]['Duration'],
-            'diet_advice': med_row.iloc[0]['Diet_Advice'],
-            'lifestyle': med_row.iloc[0]['Lifestyle']
-        }
-
-    allo_row = allopathic_df.loc[allopathic_df['Disease'] == medicine_lookup] if not allopathic_df.empty else pd.DataFrame()
-    allo_info = {}
-    if not allo_row.empty:
-        allo_info = {
-            'medicine': allo_row.iloc[0]['Medicine'],
-            'dosage': allo_row.iloc[0]['Dosage'],
-            'duration': allo_row.iloc[0]['Duration'],
-            'diet_advice': allo_row.iloc[0]['Diet_Advice'],
-            'lifestyle': allo_row.iloc[0]['Lifestyle']
-        }
+    display_name, medicine_info, allo_info = get_medicine_info_for_disease(prediction)
 
     return jsonify({
         'disease': display_name,
@@ -2044,7 +2497,7 @@ def patient_chatbot():
         (session['user_id'],)
     ).fetchone()
     recent_prescriptions = conn.execute(
-        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 3",
+        "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 3",
         (session['user_id'],)
     ).fetchall()
     conn.close()
@@ -2123,7 +2576,7 @@ def api_patient_chatbot():
             (session['user_id'],)
         ).fetchone()
         recent_prescriptions = conn.execute(
-            "SELECT pr.*, d.name as doctor_name FROM prescriptions pr JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 2",
+            "SELECT pr.*, d.name as doctor_name FROM prescriptions pr LEFT JOIN doctors d ON pr.doctor_id=d.id WHERE pr.patient_id=? ORDER BY pr.created_at DESC LIMIT 2",
             (session['user_id'],)
         ).fetchall()
         conn.close()

@@ -1,4 +1,11 @@
 # Environment variables and secrets
 .env
+.env*
 
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
 
+# Scratch directory
+scratch/

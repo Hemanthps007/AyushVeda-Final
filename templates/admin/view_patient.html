@@ -82,8 +82,15 @@
             </div>
         </div>
         {% if prescriptions %}
-        <div style="padding:20px; background:#FAFAFA; border-radius:8px; position:relative; min-height:350px;">
+        <div id="treatmentChartContainer" data-address="{{ (patient.address or 'Not available')|replace('\"', '')|replace('\n', ' ')|replace('\r', '') }}" style="padding:20px; background:#FAFAFA; border-radius:8px; position:relative; min-height:350px;">
             <canvas id="treatmentChart" style="max-height:350px;"></canvas>
+            <script type="application/json" id="treatmentChartData">
+            [
+                {% for pr in prescriptions %}
+                "{{ (pr.predicted_disease or 'Unknown')|replace('\"', '')|replace('\n', ' ') }}"{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+            </script>
         </div>
         {% else %}
         <div style="text-align:center;padding:48px;color:#7A6558">No chart data available.</div>
@@ -101,7 +108,11 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
                 <div>
                     <span style="font-size:18px;font-weight:600;font-family:'Cormorant Garamond',serif;color:#1A1208">{{ pr.predicted_disease }}</span>
-                    <span class="badge badge-blue" style="margin-left:10px">{{ pr.doctor_name }}</span>
+                    {% if pr.saved_by == 'patient' %}
+                    <span class="badge" style="background:#713f12;color:#fef08a;margin-left:10px">🤖 Patient Saved</span>
+                    {% else %}
+                    <span class="badge badge-blue" style="margin-left:10px">Dr. {{ pr.doctor_name or 'Doctor' }}</span>
+                    {% endif %}
                 </div>
                 <span style="font-size:12px;color:#7A6558">{{ pr.created_at }}</span>
             </div>
@@ -156,15 +167,20 @@
 <script>
     // Create Treatment Progress Chart
     const treatmentChartCanvas = document.getElementById('treatmentChart');
+    const chartDataElement = document.getElementById('treatmentChartData');
+    const chartContainer = document.getElementById('treatmentChartContainer');
     
-    if (treatmentChartCanvas) {
+    if (treatmentChartCanvas && chartDataElement) {
+        let diseasesList = [];
+        try {
+            diseasesList = JSON.parse(chartDataElement.textContent || '[]');
+        } catch (e) {
+            console.error('Error parsing chart data', e);
+        }
+
         // Count prescriptions by disease
         const diseaseCount = {};
-        [
-            {% for pr in prescriptions %}
-            "{{ (pr.predicted_disease or 'Unknown')|replace('\"', '\\\"')|replace('\n', ' ') }}",
-            {% endfor %}
-        ].forEach(disease => {
+        diseasesList.forEach(disease => {
             diseaseCount[disease] = (diseaseCount[disease] || 0) + 1;
         });
         
@@ -188,6 +204,8 @@
             b = Math.max(0, b - 30);
             return '#' + r.toString(16).padStart(2, '0') + g.toString(16).padStart(2, '0') + b.toString(16).padStart(2, '0');
         });
+
+        const patientAddress = chartContainer ? (chartContainer.getAttribute('data-address') || 'Not available') : 'Not available';
         
         new Chart(treatmentChartCanvas, {
             type: 'bar',
@@ -210,7 +228,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: `Patient Address: {{ patient.address|replace('\n', ' ')|replace('\r', '')|replace('`', '\\`') if patient.address else "Not available" }}`,
+                        text: 'Patient Address: ' + patientAddress,
                         align: 'end',
                         padding: {
                             top: 10,

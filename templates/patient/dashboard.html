@@ -122,7 +122,14 @@
         {% set pr = prescriptions[0] %}
         <div style="background:#F1F8E9;border-radius:12px;padding:20px;margin-bottom:16px">
             <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#1A1208;margin-bottom:4px">{{ pr.predicted_disease }}</div>
-            <div style="font-size:12px;color:#4A7C22;margin-bottom:12px">Dr. {{ pr.doctor_name }} · {{ pr.created_at[:10] }}</div>
+            <div style="font-size:12px;color:#4A7C22;margin-bottom:12px">
+                {% if pr.saved_by == 'patient' %}
+                <span style="background:#713f12;color:#fef08a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🤖 Patient Saved</span>
+                {% else %}
+                <span style="background:#1e3a8a;color:#bfdbfe;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">👨‍⚕️ Dr. {{ pr.doctor_name or 'Specialist' }}</span>
+                {% endif %}
+                · {{ pr.created_at[:10] }}
+            </div>
             <div style="font-size:13px;color:#4A3728;margin-bottom:8px"><strong>Medicines:</strong> {{ pr.medicines[:100] }}{% if pr.medicines|length > 100 %}...{% endif %}</div>
             <div style="font-size:13px;color:#4A3728"><strong>Duration:</strong> {{ pr.duration }}</div>
         </div>

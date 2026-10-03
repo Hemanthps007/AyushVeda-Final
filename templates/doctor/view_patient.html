@@ -347,7 +347,14 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:16px">
             <div>
                 <h3 style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#1A1208">{{ pr.predicted_disease }}</h3>
-                <p style="color:#7A6558;font-size:13px">Prescribed by Dr. {{ pr.doctor_name }} · {{ pr.created_at[:10] }}</p>
+                <p style="color:#7A6558;font-size:13px">
+                    {% if pr.saved_by == 'patient' %}
+                    <span style="background:#713f12;color:#fef08a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">🤖 Patient Saved (AI Prediction)</span>
+                    {% else %}
+                    Prescribed by Dr. {{ pr.doctor_name or 'Doctor' }}
+                    {% endif %}
+                    · {{ pr.created_at[:10] }}
+                </p>
             </div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <span class="badge badge-green">Completed</span>

@@ -305,7 +305,7 @@ print(f"\n  Training Accuracy: {train_acc:.4f}")
 print(f"  Test Accuracy:     {test_acc:.4f}")
 
 # ── 5. Save ──────────────────────────────────────────────────────────────────
-joblib.dump(model, os.path.join(BASE_DIR, 'disease_model.pkl'))
+joblib.dump(model, os.path.join(BASE_DIR, 'disease_model.pkl'), compress=3)
 joblib.dump(symptoms_list, os.path.join(BASE_DIR, 'symptoms_list.pkl'))
 print(f"\nModel saved. Total Diseases: {len(diseases)} | Total Symptoms: {len(symptoms_list)} | Test Accuracy: {test_acc:.2f}")
 
