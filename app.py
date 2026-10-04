@@ -28,7 +28,14 @@ def inject_now():
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
+if os.environ.get('VERCEL'):
+    DB_PATH = os.path.join('/tmp', 'ayurcare.db')
+    orig_db = os.path.join(BASE_DIR, 'ayurcare.db')
+    if not os.path.exists(DB_PATH) and os.path.exists(orig_db):
+        import shutil
+        shutil.copyfile(orig_db, DB_PATH)
+else:
+    DB_PATH = os.path.join(BASE_DIR, 'ayurcare.db')
 MODEL_PATH = os.path.join(BASE_DIR, 'ml_model', 'disease_model.pkl')
 SYMPTOMS_PATH = os.path.join(BASE_DIR, 'ml_model', 'symptoms_list.pkl')
 EXCEL_PATH = os.path.join(BASE_DIR, 'data', 'ayurvedic_medicines.xlsx')
@@ -92,11 +99,14 @@ def _load_model():
         m.predict(test_df)
         return m, s
     except Exception as e:
-        print(f"[AyurCare] Model load failed ({e}), retraining...")
-        _train_and_save_model()
-        m = _jl.load(MODEL_PATH)
-        s = _jl.load(SYMPTOMS_PATH)
-        return m, s
+        print(f"[AyurCare] Model load failed ({e})")
+        if not os.environ.get('VERCEL'):
+            print("[AyurCare] Retraining ML model...")
+            _train_and_save_model()
+            m = _jl.load(MODEL_PATH)
+            s = _jl.load(SYMPTOMS_PATH)
+            return m, s
+        raise e
 
 model, symptoms_list = _load_model()
 medicines_df = pd.read_excel(EXCEL_PATH)
@@ -458,6 +468,11 @@ def check_safety_rules(patient_conditions, patient_allergies, medicine_info, all
 
 # ── DB Setup ──────────────────────────────────────────────────────────────────
 def get_db():
+    if os.environ.get('VERCEL') and not os.path.exists(DB_PATH):
+        orig_db = os.path.join(BASE_DIR, 'ayurcare.db')
+        if os.path.exists(orig_db):
+            import shutil
+            shutil.copyfile(orig_db, DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
