@@ -554,6 +554,208 @@
             display: flex;
             gap: 12px;
         }
+
+        /* Mobile Hamburger & Off-canvas styles */
+        .mobile-menu-toggle {
+            display: none;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 38px;
+            height: 38px;
+            background: var(--cream);
+            border: 1.5px solid var(--cream-dark);
+            border-radius: 8px;
+            padding: 8px 7px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .mobile-menu-toggle span {
+            display: block;
+            width: 100%;
+            height: 2.5px;
+            background: var(--forest);
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .mobile-menu-toggle:hover {
+            background: var(--cream-dark);
+            border-color: var(--forest-mid);
+        }
+
+        .sidebar-close-btn {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 18px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ── MOBILE RESPONSIVE MEDIA QUERIES (max-width: 991px) ── */
+        @media (max-width: 991px) {
+            .mobile-menu-toggle {
+                display: flex;
+            }
+
+            .sidebar-close-btn {
+                display: flex;
+            }
+
+            .sidebar-overlay {
+                display: block;
+            }
+
+            .sidebar {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 280px !important;
+                max-width: 85vw !important;
+                height: 100vh !important;
+                z-index: 1000 !important;
+                transform: translateX(-100%) !important;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3) !important;
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0) !important;
+            }
+
+            .main {
+                margin-left: 0 !important;
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+
+            .topbar {
+                padding: 12px 16px !important;
+                gap: 12px;
+            }
+
+            .topbar h1 {
+                font-size: 20px !important;
+            }
+
+            .date-badge {
+                display: none !important;
+            }
+
+            .content {
+                padding: 16px 12px 32px !important;
+            }
+
+            .card {
+                padding: 16px !important;
+                border-radius: 14px !important;
+                margin-bottom: 16px !important;
+            }
+
+            .card-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr !important;
+                gap: 14px !important;
+            }
+
+            .form-actions {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .form-actions .btn {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+
+            .table-responsive,
+            table {
+                display: block !important;
+                width: 100% !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+
+            .symptom-grid {
+                grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)) !important;
+                gap: 7px !important;
+                padding: 0 !important;
+            }
+
+            .symptom-chip {
+                padding: 8px 10px !important;
+                font-size: 12px !important;
+            }
+
+            #treatment_grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+
+            input,
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .topbar h1 {
+                font-size: 18px !important;
+            }
+
+            .topbar .breadcrumb {
+                font-size: 11.5px !important;
+            }
+
+            .content {
+                padding: 12px 10px 24px !important;
+            }
+
+            .card {
+                padding: 14px !important;
+            }
+
+            .page-tab-btn {
+                padding: 8px 14px !important;
+                font-size: 13px !important;
+            }
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -561,6 +763,7 @@
 <body>
     {% block body %}
     <div class="sidebar">
+        <button class="sidebar-close-btn" onclick="toggleMobileSidebar()" aria-label="Close menu" type="button">&times;</button>
         <div class="sidebar-brand">
             <div class="logo-icon"><img src="/static/images/logo_icon.png"
                     style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
@@ -585,11 +788,19 @@
                     style="height:1.2em;width:1.2em;vertical-align:-0.2em;"> Logout</a>
         </div>
     </div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
     <div class="main">
         <div class="topbar">
-            <div>
-                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
-                <div class="breadcrumb">{% block breadcrumb %}Home{% endblock %}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu-toggle" onclick="toggleMobileSidebar()" aria-label="Open menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div>
+                    <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                    <div class="breadcrumb">{% block breadcrumb %}Home{% endblock %}</div>
+                </div>
             </div>
             <div class="topbar-right">
                 <span class="date-badge"><img src="/static/images/appointments_icon.png"
@@ -620,6 +831,14 @@
         </div>
     </div>
     {% endblock %}
+    <script>
+    function toggleMobileSidebar() {
+        var sidebar = document.querySelector('.sidebar');
+        var overlay = document.getElementById('sidebarOverlay');
+        if (sidebar) sidebar.classList.toggle('mobile-open');
+        if (overlay) overlay.classList.toggle('active');
+    }
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 
