@@ -14,7 +14,7 @@
 
 **A production-grade, doctor-in-the-loop Clinical Decision Support System (CDSS) bridging ancient Ayurvedic therapeutics (*Tridosha & Dravyaguna*) with modern evidence-based allopathic medicine, emergency red-flag triage, multilingual voice/vision input, and full-stack hospital management.**
 
-[Explore Live Web App](https://ayush-veda-final-764u.vercel.app/) • [Demo Credentials](#-demo-credentials) • [Key Features](#-key-features--capabilities) • [System Architecture](#-system-architecture) • [ML Methodology](#-machine-learning-diagnostic-core) • [Installation Guide](#-quick-start--local-setup)
+[Explore Live Web App](https://ayush-veda-final.vercel.app/) • [Demo Credentials](#-demo-credentials) • [Key Features](#-key-features--capabilities) • [System Architecture](#-system-architecture) • [ML Methodology](#-machine-learning-diagnostic-core) • [Installation Guide](#-quick-start--local-setup)
 
 </div>
 
