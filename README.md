@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Production-2D5016?style=for-the-badge&logo=vercel&logoColor=white)](https://ayush-veda-final-764u.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Production-2D5016?style=for-the-badge&logo=vercel&logoColor=white)](https://ayush-veda-final.vercel.app/)
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.3%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
