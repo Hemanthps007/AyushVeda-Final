@@ -485,11 +485,5 @@ Full research paper and conference artifacts are available in this repository:
 **Hemanth P. S.**  
 *Department of Computer Science & Engineering*  
 *Coorg Institute of Technology, Ponnampet, Karnataka, India*  
-- **GitHub**: [@Hemanthps007](https://github.com/Hemanthps007)  
-- **Live Application**: [https://ayush-veda-final-764u.vercel.app/](https://ayush-veda-final-vercel.app/)
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+- **GitHub**: [@Hemanthps007](https://github.com/Hemanthps007)
+- 
