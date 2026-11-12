@@ -2,6 +2,25 @@
 <html lang="en">
 
 <head>
+
+    <head>
+        <!-- Google Tag Manager -->
+        <script>
+            (function (w, d, s, l, i) {
+                w[l] = w[l] || [];
+                w[l].push({
+                    'gtm.start': new Date().getTime(),
+                    event: 'gtm.js'
+                });
+                var f = d.getElementsByTagName(s)[0],
+                    j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+                j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+                f.parentNode.insertBefore(j, f);
+            })(window, document, 'script', 'dataLayer', 'GTM-XXXXXXX');
+        </script>
+        <!-- End Google Tag Manager -->
+    </head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AyushVeda{% endblock %} — Healthcare Beyond Boundaries</title>
@@ -761,9 +780,19 @@
 </head>
 
 <body>
+
+    <body>
+        <!-- Google Tag Manager (noscript) -->
+        <noscript>
+            <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0"
+                style="display:none;visibility:hidden"></iframe>
+        </noscript>
+        <!-- End Google Tag Manager (noscript) -->
+    </body>
     {% block body %}
     <div class="sidebar">
-        <button class="sidebar-close-btn" onclick="toggleMobileSidebar()" aria-label="Close menu" type="button">&times;</button>
+        <button class="sidebar-close-btn" onclick="toggleMobileSidebar()" aria-label="Close menu"
+            type="button">&times;</button>
         <div class="sidebar-brand">
             <div class="logo-icon"><img src="/static/images/logo_icon.png"
                     style="height:1.2em;width:1.2em;vertical-align:-0.2em;"></div>
@@ -832,12 +861,12 @@
     </div>
     {% endblock %}
     <script>
-    function toggleMobileSidebar() {
-        var sidebar = document.querySelector('.sidebar');
-        var overlay = document.getElementById('sidebarOverlay');
-        if (sidebar) sidebar.classList.toggle('mobile-open');
-        if (overlay) overlay.classList.toggle('active');
-    }
+        function toggleMobileSidebar() {
+            var sidebar = document.querySelector('.sidebar');
+            var overlay = document.getElementById('sidebarOverlay');
+            if (sidebar) sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>
